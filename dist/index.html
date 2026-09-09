@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0c0f16">
+  <meta name="description" content="Личная коллекция Englex. Слова и фразы на карточках с переводом, транскрипцией и озвучкой.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Englex Pocket">
+  <title>Englex Pocket — ваша коллекция слов</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./nocturne.css">
+  <link rel="stylesheet" href="./phone.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#study">К карточке</a>
+  <div class="app-shell">
+    <header class="app-header">
+      <a class="brand" href="./" aria-label="Englex Pocket, главная"><img class="brand-icon" src="./icon-192.png" width="48" height="48" alt=""><span>englex<span class="brand-pocket">pocket</span></span></a>
+      <div class="header-actions"><button class="icon-button phone-control" id="collection-open" aria-label="Поиск и выбор карточек" aria-controls="collection-dialog" aria-haspopup="dialog"><span data-icon="search"></span></button><button class="icon-button phone-control" id="install-open" aria-label="Добавить на экран Домой" aria-haspopup="dialog"><span data-icon="phone"></span></button><button class="icon-button" id="settings-open" aria-label="Озвучка и настройки"><span data-icon="settings"></span></button></div>
+    </header>
+    <main class="workspace">
+      <div id="collection-home"><aside class="collection" id="collection-panel" aria-label="Выбор карточек">
+        <div class="collection-heading"><div><p class="eyebrow">Личная коллекция</p><h1>Ваш словарь</h1></div><span class="collection-total" id="total-count">—</span></div>
+        <label class="search-box"><span data-icon="search"></span><span class="visually-hidden">Найти слово или перевод</span><input id="search" type="search" placeholder="Слово или перевод" autocomplete="off" spellcheck="false"><kbd>/</kbd></label>
+        <div class="deck-tabs" role="group" aria-label="Колода">
+          <button class="deck-tab active" data-deck="all" aria-pressed="true">Все <span id="all-count">—</span></button>
+          <button class="deck-tab" data-deck="starred" aria-pressed="false"><span data-icon="star"></span><span>Избранное</span><span id="star-count">0</span></button>
+          <button class="deck-tab" data-deck="review" aria-pressed="false">Повторить <span id="review-count">0</span></button>
+        </div>
+        <div class="collection-filters">
+          <label><span class="visually-hidden">Тип выражения</span><select id="kind-filter"><option value="all">Все типы</option><option value="word">Слова</option><option value="collocation">Сочетания</option><option value="phrasal">Фразовые глаголы</option></select></label>
+          <label><span class="visually-hidden">Порядок карточек</span><select id="sort-order"><option value="newest">Сначала новые</option><option value="oldest">Сначала старые</option><option value="alphabetical">От A до Z</option></select></label>
+        </div>
+        <div id="search-results" class="search-results" hidden aria-label="Результаты поиска"></div>
+        <div class="collection-footer"><span data-icon="layers"></span><span id="collection-note">Ваш словарь Englex</span></div>
+      </aside></div>
+      <section id="study" class="study" aria-label="Карточки для повторения">
+        <div class="study-topline"><span id="deck-label">Вся коллекция</span><div><span id="position-label" class="position-label">—</span><button id="shuffle" class="icon-button small" aria-label="Перемешать карточки"><span data-icon="shuffle"></span></button></div></div>
+        <div id="load-state" class="empty-state" role="status"><span class="loading-ring" aria-hidden="true"></span><h2>Открываем вашу коллекцию…</h2></div>
+        <div id="empty-state" class="empty-state" hidden><span data-icon="search"></span><h2 id="empty-title">Карточек пока нет</h2><p id="empty-text"></p><button class="secondary-button" id="clear-filters">Показать все карточки</button></div>
+        <div id="card-stage" class="card-stage" hidden>
+          <article id="flashcard" class="flashcard" aria-label="Английская карточка">
+            <div class="card-inner">
+              <div id="card-front" class="card-face card-front">
+                <div class="card-toolbar"><span class="type-label" id="card-kind"></span><button id="star-front" class="icon-button card-star" aria-label="Добавить в избранное" aria-pressed="false"><span data-icon="star"></span></button></div>
+                <div class="word-area"><p class="card-direction">ENGLISH</p><div class="word-line"><h2 id="card-word" lang="en"></h2><button id="speak-front" class="audio-button" aria-label="Озвучить выражение"><span data-icon="volume"></span></button></div><div class="pronunciation"><span id="card-ipa" lang="en"></span></div></div>
+                <div class="card-bottom"><span id="card-date"></span><span>Перевод на обороте <span data-icon="rotate"></span></span></div>
+              </div>
+              <div id="card-back" class="card-face card-back" inert aria-hidden="true">
+                <div class="card-toolbar"><span class="type-label">Значение</span><button id="star-back" class="icon-button card-star" aria-label="Добавить в избранное" aria-pressed="false"><span data-icon="star"></span></button></div>
+                <div class="meaning-area"><div class="word-line"><p id="back-word" class="back-word" lang="en"></p><button id="speak-back" class="audio-button back-audio" aria-label="Озвучить английское выражение"><span data-icon="volume"></span></button></div><div id="card-translation" class="card-translation"></div></div>
+                <div class="card-bottom"><span id="card-lists"></span><span id="card-state"></span></div>
+              </div>
+            </div>
+          </article>
+          <div class="flip-row"><button id="flip" class="flip-button" aria-controls="flashcard" aria-pressed="false"><span data-icon="rotate"></span><span id="flip-label">Показать перевод</span><kbd>пробел</kbd></button></div>
+          <div class="rating-row" id="rating-row"><button id="mark-review" class="review-button"><span data-icon="repeat"></span>Повторить</button><button id="mark-known" class="known-button"><span data-icon="check"></span>Знаю</button></div>
+          <nav class="card-navigation" aria-label="Переключение карточек"><button id="previous" class="icon-button" aria-label="Предыдущая карточка"><span data-icon="left"></span></button><span id="progress-note">Сначала вспомните значение</span><button id="next" class="icon-button" aria-label="Следующая карточка"><span data-icon="right"></span></button></nav>
+        </div>
+        <p id="audio-status" class="audio-status" role="status" aria-live="polite"></p>
+        <button id="audio-reset" class="text-button audio-reset" hidden>Перезапустить звук</button>
+      </section>
+    </main>
+    <footer class="app-footer"><span id="footer-progress">Englex Pocket</span><button id="install-help" class="text-button"><span data-icon="phone"></span>На экран телефона</button></footer>
+  </div>
+  <dialog id="collection-dialog" class="settings-dialog collection-dialog" aria-labelledby="collection-title"><form method="dialog" class="dialog-header"><h2 id="collection-title">Ваш словарь</h2><button class="icon-button" aria-label="Закрыть поиск"><span data-icon="close"></span></button></form><div id="collection-dialog-body" class="dialog-content"></div><div class="collection-done"><button id="collection-apply" class="secondary-button">К карточкам</button></div></dialog>
+  <dialog id="settings-dialog" class="settings-dialog" aria-labelledby="settings-title">
+    <form method="dialog" class="dialog-header"><h2 id="settings-title">Как звучит английский</h2><button class="icon-button" aria-label="Закрыть настройки"><span data-icon="close"></span></button></form>
+    <div class="dialog-content"><label class="field-label" for="voice-select">Голос</label><select id="voice-select"><option value="auto">AI Voice · мягкий голос</option></select><p class="field-hint" id="voice-coverage">Загружаем доступные записи…</p><p class="field-hint">Записи звучат прямо в карточке. При недоступной записи используется английский голос устройства.</p>
+      <label class="field-label" for="speech-rate">Темп <span id="rate-label">0,9×</span></label><input id="speech-rate" type="range" min="0.65" max="1.15" step="0.05" value="0.9"><div class="range-labels"><span>Спокойнее</span><span>Быстрее</span></div>
+      <button id="test-voice" class="secondary-button"><span data-icon="volume"></span>Послушать голос</button>
+      <hr><h3>Ваша коллекция</h3><p class="settings-info" id="source-info"></p><p class="settings-info">Избранное, отметки и текущая карточка сохраняются в этом браузере. Отметка «Знаю» — ваша самооценка.</p>
+      <div class="backup-actions"><button id="export-progress" class="text-button">Сохранить копию прогресса</button><button id="import-open" class="text-button">Восстановить из копии</button><input id="import-progress" type="file" accept="application/json,.json" hidden></div>
+      <p id="settings-status" class="settings-info" role="status" aria-live="polite"></p>
+    </div>
+  </dialog>
+  <dialog id="install-dialog" class="settings-dialog" aria-labelledby="install-title"><form method="dialog" class="dialog-header"><h2 id="install-title">Всегда под рукой</h2><button class="icon-button" aria-label="Закрыть"><span data-icon="close"></span></button></form><div class="dialog-content"><img class="install-icon" src="./apple-touch-icon.png" width="96" height="96" alt="Иконка Englex Pocket"><p id="install-description">Добавьте Englex Pocket на экран «Домой» — карточки будут открываться отдельным приложением.</p><ol id="install-steps"><li>Откройте эту страницу в Safari.</li><li>Нажмите «Поделиться» — при необходимости через меню «Ещё».</li><li>Выберите «На экран “Домой”», включите «Открывать как веб-приложение», если переключатель показан, и нажмите «Добавить».</li></ol><p class="field-hint">Для загрузки словаря и новых аудиозаписей нужен интернет.</p><p class="field-hint">При переходе на другой адрес сначала сохраните копию прогресса в настройках, затем восстановите её по новому адресу.</p></div></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <noscript><p>Для карточек и озвучки включите JavaScript в браузере.</p></noscript>
+</body>
+</html>
