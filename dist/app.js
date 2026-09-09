@@ -62,6 +62,32 @@ function renderWord(node,word){
   const parts=word.split(/(\{[^}]+\})/g);
   for(const part of parts){if(part.startsWith('{')&&part.endsWith('}')){const span=document.createElement('span');span.className='pattern';span.textContent=part.slice(1,-1);node.append(span);}else node.append(document.createTextNode(part));}
 }
+
+let cardTextFrame=0;
+function fitCardText(){
+  cardTextFrame=0;
+  if($('card-stage').hidden)return;
+  for(const id of ['card-word','back-word','card-translation']){
+    const node=$(id);
+    // Restore the designed size for every card and after rotation. Phrases
+    // wrap naturally; shrink only if an individual word still overflows.
+    node.style.removeProperty('font-size');
+    if(!node.clientWidth||node.scrollWidth<=node.clientWidth)continue;
+    let low=1,high=parseFloat(getComputedStyle(node).fontSize);
+    for(let step=0;step<12;step++){
+      const size=(low+high)/2;
+      node.style.fontSize=`${size}px`;
+      // Layout widths remain valid while either card face is rotated.
+      if(node.scrollWidth>node.clientWidth)high=size;else low=size;
+    }
+    node.style.fontSize=`${Math.floor(low*10)/10}px`;
+  }
+}
+function scheduleCardTextFit(){
+  cancelAnimationFrame(cardTextFrame);
+  cardTextFrame=requestAnimationFrame(fitCardText);
+}
+
 function flip(force){
   if(!current())return;
   state.flipped=typeof force==='boolean'?force:!state.flipped;
@@ -96,6 +122,7 @@ function renderCard(){
   for(const id of ['speak-front','speak-back'])$(id).setAttribute('aria-label',`Озвучить ${speechText(c.word)}`);
   updateAudioButtons();
   $('previous').disabled=state.index===0;$('next').disabled=state.index===state.filtered.length-1;
+  scheduleCardTextFit();
   save();
 }
 function renderResults(){
@@ -200,6 +227,19 @@ bindEvents();
 syncPhoneLayout();syncInstalledState();
 phoneMedia.addEventListener('change',syncPhoneLayout);
 matchMedia('(display-mode: standalone)').addEventListener('change',syncInstalledState);
+window.addEventListener('resize',scheduleCardTextFit,{passive:true});
+if(typeof ResizeObserver==='function'){
+  let studyWidth=-1;
+  const observer=new ResizeObserver(entries=>{
+    const width=entries[0].contentRect.width;
+    if(width!==studyWidth){studyWidth=width;scheduleCardTextFit();}
+  });
+  observer.observe($('study'));
+}
+if(document.fonts){
+  document.fonts.ready.then(scheduleCardTextFit);
+  document.fonts.addEventListener('loadingdone',scheduleCardTextFit);
+}
 refreshVoices();updateAudioButtons();
 if(speechSupported)synth.addEventListener('voiceschanged',refreshVoices);
 async function init(){
