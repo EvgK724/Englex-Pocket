@@ -248,10 +248,12 @@ async function fetchCollection(){
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),15_000);
   const options={cache:'no-store',signal:controller.signal};
+  // A unique query also avoids stale shared/CDN caches after Pages deploys.
+  const freshAsset=path=>`${assetUrl(path)}?sync=${Date.now()}`;
   try{
     return await Promise.all([
-      fetch(assetUrl('dictionary.json'),options).then(r=>{if(!r.ok)throw new Error('Не удалось загрузить словарь.');return r.json();}),
-      fetch(assetUrl('audio-index.json'),options).then(r=>r.ok?r.json():null).catch(()=>null)
+      fetch(freshAsset('dictionary.json'),options).then(r=>{if(!r.ok)throw new Error('Не удалось загрузить словарь.');return r.json();}),
+      fetch(freshAsset('audio-index.json'),options).then(r=>r.ok?r.json():null).catch(()=>null)
     ]);
   }finally{clearTimeout(timeout);controller.abort();}
 }
