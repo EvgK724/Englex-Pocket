@@ -23,6 +23,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Test dictionary imports
+        run: node --test scripts/test-import-englex.mjs
+
       - name: Check application
         run: node scripts/check-static.mjs
 

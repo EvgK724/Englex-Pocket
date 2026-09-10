@@ -30,6 +30,8 @@ const state={cards:[],filtered:[],stars:new Set(),ratings:Object.create(null),qu
 let byId=new Map(),metadata=null, toastTimer,storageWarning=false;
 let currentId=null;
 let audioIds=new Set();
+const COLLECTION_REFRESH_DELAY=60_000;
+let collectionRequest=null,lastCollectionAttempt=0,collectionSignature='';
 const failedRecordings=new Set();
 const recordedSpeech=new RecordedSpeech();
 const phoneMedia=matchMedia('(max-width: 820px), (max-width: 1024px) and (pointer: coarse)');
@@ -242,20 +244,70 @@ if(document.fonts){
 }
 refreshVoices();updateAudioButtons();
 if(speechSupported)synth.addEventListener('voiceschanged',refreshVoices);
-async function init(){
+async function fetchCollection(){
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),15_000);
+  const options={cache:'no-store',signal:controller.signal};
   try{
-    const [response,audioIndex]=await Promise.all([fetch(assetUrl('dictionary.json')),fetch(assetUrl('audio-index.json')).then(r=>r.ok?r.json():null).catch(()=>null)]);if(!response.ok)throw new Error('Не удалось загрузить словарь.');
-    const data=await response.json();if(!Array.isArray(data.cards)||data.cards.length!==data.metadata.count)throw new Error('Словарь загружен не полностью.');
-    metadata=data.metadata;
-    state.cards=data.cards.map((c,order)=>({...c,order,search:normalizeText(`${c.word} ${c.translation} ${c.lists}`)}));
-    byId=new Map(state.cards.map(c=>[c.id,c]));loadProgress();
-    audioIds=new Set(Array.isArray(audioIndex?.cards)?audioIndex.cards.filter(id=>byId.has(id)):[]);
-    refreshVoices();updateAudioButtons();
-    $('voice-coverage').textContent=audioIds.size===state.cards.length?`AI Voice: все ${audioIds.size.toLocaleString('ru-RU')} карточки. Один мягкий голос на всех устройствах.`:audioIds.size?`AI Voice: ${audioIds.size.toLocaleString('ru-RU')} из ${state.cards.length.toLocaleString('ru-RU')} карточек. Для остальных доступна озвучка устройства.`:'Доступны английские голоса вашего устройства.';
-    $('kind-filter').value=state.kind;$('sort-order').value=state.sort;$('speech-rate').value=state.rate;$('rate-label').textContent=state.rate.toLocaleString('ru-RU')+'×';
-    $('source-info').textContent=`Все ${metadata.count.toLocaleString('ru-RU')} записи из вашего Englex за ${formatDate(metadata.from)}–${formatDate(metadata.through)}. Переводы сохранены из исходного словаря; транскрипция показана там, где она была в экспорте.`;
-    $('collection-note').textContent=`Englex · ${formatDate(metadata.from)}–${formatDate(metadata.through)}`;
-    $('load-state').hidden=true;applyFilters(currentId);refreshVoices();
-  }catch(error){$('load-state').replaceChildren();const h=document.createElement('h2');h.textContent='Не удалось открыть коллекцию';const p=document.createElement('p');p.textContent='Проверьте соединение с интернетом и повторите.';const b=document.createElement('button');b.className='secondary-button';b.textContent='Попробовать ещё раз';b.addEventListener('click',()=>location.reload());$('load-state').append(h,p,b);}
+    return await Promise.all([
+      fetch(assetUrl('dictionary.json'),options).then(r=>{if(!r.ok)throw new Error('Не удалось загрузить словарь.');return r.json();}),
+      fetch(assetUrl('audio-index.json'),options).then(r=>r.ok?r.json():null).catch(()=>null)
+    ]);
+  }finally{clearTimeout(timeout);controller.abort();}
 }
+function installCollection(data,audioIndex,initial){
+  const info=data?.metadata,cards=data?.cards;
+  if(!info||!Number.isInteger(info.count)||!Array.isArray(cards)||cards.length!==info.count||
+    typeof info.from!=='string'||typeof info.through!=='string'||cards.some(c=>!c||
+      typeof c.id!=='string'||!/^[a-f0-9]{20}$/.test(c.id)||!['word','collocation','phrasal'].includes(c.kind)||
+      !['word','translation','ipa','added','lists'].every(key=>typeof c[key]==='string')||!c.word.trim()))
+    throw new Error('Словарь загружен не полностью.');
+  const nextIds=new Set(cards.map(c=>c.id));
+  if(nextIds.size!==cards.length)throw new Error('В словаре повторяются идентификаторы.');
+  // A delayed older deployment must never remove cards or their saved progress.
+  if(!initial&&state.cards.some(c=>!nextIds.has(c.id)))throw new Error('Получена устаревшая версия словаря.');
+  const signature=JSON.stringify(data),changed=signature!==collectionSignature;
+  const preferredId=current()?.id||currentId,wasFlipped=state.flipped;
+  const added=cards.reduce((n,c)=>n+Number(!byId.has(c.id)),0);
+  if(changed){
+    state.cards=cards.map((c,order)=>({...c,order,search:normalizeText(`${c.word} ${c.translation} ${c.lists}`)}));
+    byId=new Map(state.cards.map(c=>[c.id,c]));metadata=info;
+    collectionSignature=signature;
+  }
+  if(initial)loadProgress();
+  // A temporary audio-index failure keeps recordings already known to the app.
+  if(Array.isArray(audioIndex?.cards))audioIds=new Set(audioIndex.cards.filter(id=>byId.has(id)));
+  refreshVoices();updateAudioButtons();
+  $('voice-coverage').textContent=audioIds.size===state.cards.length?`AI Voice: все ${audioIds.size.toLocaleString('ru-RU')} карточки. Один мягкий голос на всех устройствах.`:audioIds.size?`AI Voice: ${audioIds.size.toLocaleString('ru-RU')} из ${state.cards.length.toLocaleString('ru-RU')} карточек. Для остальных доступна озвучка устройства.`:'Доступны английские голоса вашего устройства.';
+  $('source-info').textContent=`Все ${metadata.count.toLocaleString('ru-RU')} записи из вашего Englex за ${formatDate(metadata.from)}–${formatDate(metadata.through)}. Переводы сохранены из исходного словаря; транскрипция показана там, где она была в экспорте.`;
+  $('collection-note').textContent=`Englex · ${formatDate(metadata.from)}–${formatDate(metadata.through)}`;
+  if(initial){
+    $('kind-filter').value=state.kind;$('sort-order').value=state.sort;$('speech-rate').value=state.rate;$('rate-label').textContent=state.rate.toLocaleString('ru-RU')+'×';
+    $('load-state').hidden=true;applyFilters(currentId);
+  }else if(changed){
+    applyFilters(preferredId);
+    if(wasFlipped&&current()?.id===preferredId)flip(true);
+    if(added)toast(`Новых карточек: ${added.toLocaleString('ru-RU')}`);
+  }
+}
+function refreshCollection(initial=false){
+  if(collectionRequest)return collectionRequest;
+  if(!initial&&(!metadata||document.visibilityState==='hidden'||navigator.onLine===false||
+    Date.now()-lastCollectionAttempt<COLLECTION_REFRESH_DELAY))return Promise.resolve();
+  lastCollectionAttempt=Date.now();
+  collectionRequest=fetchCollection().then(([data,audioIndex])=>installCollection(data,audioIndex,initial)).finally(()=>{collectionRequest=null;});
+  return collectionRequest;
+}
+function refreshWhenActive(){
+  // Connectivity or deployment errors leave the currently open collection usable.
+  void refreshCollection().catch(()=>{});
+}
+async function init(){
+  try{await refreshCollection(true);}
+  catch(error){$('load-state').replaceChildren();const h=document.createElement('h2');h.textContent='Не удалось открыть коллекцию';const p=document.createElement('p');p.textContent='Проверьте соединение с интернетом и повторите.';const b=document.createElement('button');b.className='secondary-button';b.textContent='Попробовать ещё раз';b.addEventListener('click',()=>location.reload());$('load-state').append(h,p,b);}
+}
+document.addEventListener('visibilitychange',refreshWhenActive);
+window.addEventListener('pageshow',refreshWhenActive);
+window.addEventListener('online',refreshWhenActive);
+setInterval(refreshWhenActive,5*60_000);
 init();

@@ -1,20 +1,18 @@
 import assert from 'node:assert/strict';
 import {readFile, stat} from 'node:fs/promises';
-import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {assetUrl} from '../dist/paths.mjs';
+import {ORIGINAL_COUNT, validateDictionary, validateAudioIndex} from './dictionary-integrity.mjs';
 
 const root = new URL('../dist/', import.meta.url);
 const read = name => readFile(new URL(name, root));
 const dictionaryBytes = await read('dictionary.json');
 const dictionary = JSON.parse(dictionaryBytes);
 const index = JSON.parse(await read('audio-index.json'));
-assert.equal(createHash('sha256').update(dictionaryBytes).digest('hex'), 'd2528a8f9d91d2578a77082e616e5ecca5c97eec6a0906e841feee6e4040c1a4', 'Original dictionary changed');
-assert.equal(dictionary.cards.length, 8132);
-assert.equal(dictionary.metadata.count, dictionary.cards.length);
-assert.equal(new Set(dictionary.cards.map(card => card.id)).size, 8132);
-assert.equal(index.count, 8132);
-assert.deepEqual(new Set(index.cards), new Set(dictionary.cards.map(card => card.id)));
+validateDictionary(dictionary);
+// New words can use device speech until a recording is available. Every
+// recording declared by the index must still belong to a card and exist.
+validateAudioIndex(index, dictionary);
 let audioBytes = 0;
 for (const id of index.cards) {
   assert.match(id, /^[a-f0-9]{20}$/);
@@ -58,4 +56,4 @@ for (const [name, size] of [['apple-touch-icon.png', 180], ['icon-192.png', 192]
   assert.equal(png.readUInt32BE(16), size, name);
   assert.equal(png.readUInt32BE(20), size, name);
 }
-console.log(`Ready: ${dictionary.cards.length} original cards, ${index.count} recordings (${audioBytes} bytes), all assets present; root and repository paths valid.`);
+console.log(`Ready: ${dictionary.cards.length} cards (${ORIGINAL_COUNT} original cards protected), ${index.count} recordings (${audioBytes} bytes), all assets present; root and repository paths valid.`);
