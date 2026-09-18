@@ -45,6 +45,14 @@ node scripts/generate-fish-library.mjs --voice accepted --mode full --publish --
 
 Local publishing requires an authenticated Git remote. The API key remains server-side. English profile files are stored only under `audio/fish-chonishvili-en-gb-v1/` and `fish-chonishvili-en-gb-v1-index.json`.
 
+### Second recover pronunciation trial
+
+The broad accent cue did not remove the pronounced final r in the learner's listening test. A second, word-specific trial uses Fish English phoneme control: `<|phoneme_start|>R IH0 K AH1 V AH0<|phoneme_end|>.` The target is isolated British `/rɪˈkʌvə/`: the initial R remains and the last vowel is unstressed AH0 instead of rhotic ER0. This override is scoped to the single recover card and does not change dictionary spelling or other words.
+
+The `Retry recover British pronunciation` workflow generates two small sequential samples (phonemes alone, then the same phonemes with a British Received Pronunciation cue) using the existing fixed free model and voice. It uploads an artifact only. A reviewed result can replace recover in the English trial, with `recover-phonemes-2` as its audio and module cache revision. Audio decoding checks do not establish native accent quality; listening remains necessary.
+
+Reference: [Fish English phoneme control](https://docs.fish.audio/developer-guide/core-features/fine-grained-control/english).
+
 ### Softer trial recordings
 
 The five published trial recordings retain the accepted `soft-1` tone adjustment: a broad +0.5 dB at 250 Hz, -1.5 dB at 3.2 kHz and -1.5 dB high shelf at 6 kHz. The `clean-1` revision adds conservative FFT hiss reduction (`afftdn=nr=6:nf=-50:tn=0:gs=12`) after that EQ. There is no gate, compression, pitch shift or tempo change. The app's saved playback speed is preserved.

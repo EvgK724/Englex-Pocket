@@ -1,7 +1,7 @@
 import {normalizeText, speechText, selectCards, chooseVoice, sanitizeProgress, formatDate} from './core.mjs';
 import {RecordedSpeech} from './recorded-speech.mjs';
 import {assetUrl} from './paths.mjs';
-import {FISH_VOICE_URI, FISH_ENGLISH_VOICE_URI, FISH_PROFILES, isFishVoice, idsForFishVoice, validateFishManifest, recordingFor} from './fish-voice.mjs?v=card-voices-2';
+import {FISH_VOICE_URI, FISH_ENGLISH_VOICE_URI, FISH_PROFILES, isFishVoice, idsForFishVoice, validateFishManifest, recordingFor} from './fish-voice.mjs?v=recover-phonemes-2';
 
 const $ = id => document.getElementById(id);
 const icons = {

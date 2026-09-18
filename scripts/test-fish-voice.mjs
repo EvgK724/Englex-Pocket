@@ -97,7 +97,7 @@ test('English trial requires its own manifest, files and failures without alteri
   assert.deepEqual([...validateFishManifest(english,validIds,'en-gb-v1')],[b]);
   assert.equal(validateFishManifest({...english,profile:'en-gb-v2'},validIds,'en-gb-v1'),null);
   const selected={...state,voiceURI:FISH_ENGLISH_VOICE_URI,fishEnglishIds:new Set([b]),cardId:b};
-  assert.equal(recordingFor(selected).path,`audio/fish-chonishvili-en-gb-v1/${b}.mp3?v=en-gb-v1`);
+  assert.equal(recordingFor(selected).path,`audio/fish-chonishvili-en-gb-v1/${b}.mp3?v=recover-phonemes-2`);
   assert.equal(recordingFor({...selected,cardId:a}),null,'accepted voice must not masquerade as English trial');
   assert.equal(recordingFor({...state,fishEnglishIds:new Set([a]),failedRecordings:new Set([`${FISH_ENGLISH_VOICE_URI}:${a}`])}).path,`audio/fish-chonishvili/${a}.mp3?v=clean-1`);
 });
