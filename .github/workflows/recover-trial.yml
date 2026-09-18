@@ -1,0 +1,54 @@
+name: Retry recover British pronunciation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# One sequential worker can coexist with the four accepted-library workers.
+concurrency:
+  group: recover-pronunciation-trial
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' &&
+      startsWith(github.event.head_commit.message, 'Retry recover British pronunciation [recover-v2]'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Ensure accepted audio processing tools are available
+        shell: bash
+        run: |
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install --yes ffmpeg
+          fi
+      - name: Verify the fixed two-recording experiment without API calls
+        run: node --test tests/recover-trial.test.mjs
+      - name: Generate two sequential pronunciation samples
+        id: generate
+        env:
+          FISH_API_KEY: ${{ secrets.FISH_API_KEY }}
+        run: node scripts/generate-recover-trial.mjs
+      - name: Preserve samples for listening review
+        if: ${{ !cancelled() && steps.generate.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: recover-pronunciation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .recover-trial/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
