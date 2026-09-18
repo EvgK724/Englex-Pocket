@@ -16,7 +16,7 @@ export function recordingFor({cardId, voiceURI, speechSupported, audioIds, fishI
   const fishSelected = voiceURI === FISH_VOICE_URI;
   const fishKey = `${FISH_VOICE_URI}:${cardId}`;
   if (fishSelected && fishIds.has(cardId) && !failedRecordings.has(fishKey)) {
-    return {path:`audio/fish-chonishvili/${cardId}.mp3?v=soft-1`, key:fishKey, label:'Чонишвили · Fish Audio', fallback:false};
+    return {path:`audio/fish-chonishvili/${cardId}.mp3?v=clean-1`, key:fishKey, label:'Чонишвили · Fish Audio', fallback:false};
   }
   if ((voiceURI === 'auto' || !speechSupported) &&
       audioIds.has(cardId) && !failedRecordings.has(cardId)) {

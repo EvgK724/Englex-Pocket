@@ -19,15 +19,17 @@ Each run starts from the chosen repository revision. Downloaded artifacts from e
 
 ### Softer trial recordings
 
-The five published trial recordings use the `soft-1` tone adjustment requested after listening: a broad +0.5 dB at 250 Hz, -1.5 dB at 3.2 kHz and -1.5 dB high shelf at 6 kHz. There is no denoising, compression, pitch shift or tempo change. This may reduce sharpness; it does not guarantee removal of synthesis artifacts. The app's saved playback speed is preserved.
+The five published trial recordings retain the accepted `soft-1` tone adjustment: a broad +0.5 dB at 250 Hz, -1.5 dB at 3.2 kHz and -1.5 dB high shelf at 6 kHz. The `clean-1` revision adds conservative FFT hiss reduction (`afftdn=nr=6:nf=-50:tn=0:gs=12`) after that EQ. There is no gate, compression, pitch shift or tempo change. The app's saved playback speed is preserved.
+
+The denoiser runs at 44.1 kHz with 100 ms of padding; its measured 1,102-sample processing delay is removed and the output retains the original sample count. This protects the ends of words. Checks show reduced quiet high-frequency energy with minimal overall speech-level change, but these short clips have no reliable noise-only reference and subjective voice quality still needs listener review. The accepted version before denoising remains in commit `f5372ae8f0fb07dff78dec45ad2c7012ffa82eeb`.
 
 The original trial files are retained in commit `e5f213e3782519d290093fd553475cbbec7f5ef7`. Apply the profile once from untouched source recordings, using Python 3 and FFmpeg:
 
 ```sh
-python3 scripts/soften-fish-audio.py --source /path/to/original-mp3s --output dist/audio/fish-chonishvili
+python3 scripts/soften-fish-audio.py --denoise --source /path/to/original-mp3s --output dist/audio/fish-chonishvili
 ```
 
-Source and output directories must differ. For future batches, download the generated artifact, put only the newly generated raw recordings in the source directory, apply this step, then review the audio before publication. Do not reprocess already softened recordings. MP3 encoding uses 192 kb/s to limit additional encoding loss. The browser's `soft-1` URL revision prevents reuse of the earlier cached recordings.
+Source and output directories must differ. For future batches, download the generated artifact, put only the newly generated raw recordings in the source directory, apply this step, then review the audio before publication. Do not reprocess already softened recordings. Omit `--denoise` to reproduce the earlier EQ-only treatment. MP3 encoding uses 192 kb/s to limit additional encoding loss. The browser's `clean-1` URL revision prevents reuse of the earlier cached recordings.
 
 ### Generate raw recordings
 
