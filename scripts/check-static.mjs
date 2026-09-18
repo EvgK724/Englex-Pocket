@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {readFile, stat} from 'node:fs/promises';
 import {execFileSync} from 'node:child_process';
 import {assetUrl} from '../dist/paths.mjs';
+import {validateFishManifest} from '../dist/fish-voice.mjs';
 import {ORIGINAL_COUNT, validateDictionary, validateAudioIndex} from './dictionary-integrity.mjs';
 
 const root = new URL('../dist/', import.meta.url);
@@ -21,6 +22,13 @@ for (const id of index.cards) {
   audioBytes += info.size;
 }
 
+const fishIds=validateFishManifest(JSON.parse(await read('fish-chonishvili-index.json')),new Set(dictionary.cards.map(c=>c.id)));
+assert.notEqual(fishIds,null,'Invalid optional Fish voice manifest');
+for(const id of fishIds){
+  const info=await stat(new URL(`audio/fish-chonishvili/${id}.mp3`,root));
+  assert.ok(info.isFile()&&info.size>100,`Missing Fish recording: ${id}`);
+}
+
 const html = (await read('index.html')).toString();
 const manifest = JSON.parse(await read('manifest.webmanifest'));
 const references = [...html.matchAll(/(?:src|href)="([^"]+)"/g)].map(match => match[1]);
@@ -34,7 +42,7 @@ const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
 assert.equal(new Set(ids).size, ids.length, 'Duplicate HTML id');
 const app = (await read('app.js')).toString();
 for (const [, id] of app.matchAll(/\$\('([^']+)'\)/g)) assert.ok(ids.includes(id), `Missing interface element: ${id}`);
-for (const module of ['app.js', 'core.mjs', 'recorded-speech.mjs', 'paths.mjs']) {
+for (const module of ['app.js', 'core.mjs', 'recorded-speech.mjs', 'paths.mjs', 'fish-voice.mjs']) {
   execFileSync(process.execPath, ['--input-type=module', '--check'], {input: await read(module)});
   for (const [, path] of (await read(module)).toString().matchAll(/from\s+['"]([^'"]+)['"]/g)) await stat(new URL(path, root));
 }

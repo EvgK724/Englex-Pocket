@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./nocturne.css">
   <link rel="stylesheet" href="./phone.css">
-  <script type="module" src="./app.js?v=englex-sync-2"></script>
+  <script type="module" src="./app.js?v=fish-voice-1"></script>
 </head>
 <body>
   <a class="skip-link" href="#study">К карточке</a>
@@ -72,7 +72,7 @@
   <dialog id="collection-dialog" class="settings-dialog collection-dialog" aria-labelledby="collection-title"><form method="dialog" class="dialog-header"><h2 id="collection-title">Ваш словарь</h2><button class="icon-button" aria-label="Закрыть поиск"><span data-icon="close"></span></button></form><div id="collection-dialog-body" class="dialog-content"></div><div class="collection-done"><button id="collection-apply" class="secondary-button">К карточкам</button></div></dialog>
   <dialog id="settings-dialog" class="settings-dialog" aria-labelledby="settings-title">
     <form method="dialog" class="dialog-header"><h2 id="settings-title">Как звучит английский</h2><button class="icon-button" aria-label="Закрыть настройки"><span data-icon="close"></span></button></form>
-    <div class="dialog-content"><label class="field-label" for="voice-select">Голос</label><select id="voice-select"><option value="auto">AI Voice · мягкий голос</option></select><p class="field-hint" id="voice-coverage">Загружаем доступные записи…</p><p class="field-hint">Записи звучат прямо в карточке. При недоступной записи используется английский голос устройства.</p>
+    <div class="dialog-content"><label class="field-label" for="voice-select">Голос</label><select id="voice-select"><option value="auto">AI Voice · мягкий голос</option></select><p class="field-hint" id="voice-coverage">Загружаем доступные записи…</p><p class="field-hint" id="fish-coverage" hidden></p><p class="field-hint">Записи звучат прямо в карточке. При недоступной записи используется английский голос устройства.</p>
       <label class="field-label" for="speech-rate">Темп <span id="rate-label">0,9×</span></label><input id="speech-rate" type="range" min="0.65" max="1.15" step="0.05" value="0.9"><div class="range-labels"><span>Спокойнее</span><span>Быстрее</span></div>
       <button id="test-voice" class="secondary-button"><span data-icon="volume"></span>Послушать голос</button>
       <hr><h3>Ваша коллекция</h3><p class="settings-info" id="source-info"></p><p class="settings-info">Избранное, отметки и текущая карточка сохраняются в этом браузере. Отметка «Знаю» — ваша самооценка.</p>
