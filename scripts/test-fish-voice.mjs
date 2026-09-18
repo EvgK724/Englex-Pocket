@@ -21,7 +21,7 @@ test('only complete, known, unique card manifests can enable the voice',()=>{
 });
 
 test('Fish selection routes the right card and uses device speech for missing/failed recordings',()=>{
-  assert.equal(recordingFor(state).path,`audio/fish-chonishvili/${a}.mp3`);
+  assert.equal(recordingFor(state).path,`audio/fish-chonishvili/${a}.mp3?v=soft-1`);
   assert.equal(recordingFor({...state,cardId:b}),null);
   assert.equal(recordingFor({...state,failedRecordings:new Set([`${FISH_VOICE_URI}:${a}`])}),null);
   const fallback=recordingFor({...state,cardId:b,speechSupported:false});
@@ -33,7 +33,7 @@ test('existing original and device voices keep their routing and independent fai
   assert.equal(recordingFor({...state,voiceURI:'auto'}).path,`audio/${a}.mp3`);
   assert.equal(recordingFor({...state,voiceURI:'device:auto'}),null);
   assert.equal(recordingFor({...state,voiceURI:'Samantha'}),null);
-  assert.equal(recordingFor({...state,failedRecordings:new Set([a])}).path,`audio/fish-chonishvili/${a}.mp3`);
+  assert.equal(recordingFor({...state,failedRecordings:new Set([a])}).path,`audio/fish-chonishvili/${a}.mp3?v=soft-1`);
   assert.equal(recordingFor({...state,voiceURI:'auto',failedRecordings:new Set([`${FISH_VOICE_URI}:${a}`])}).path,`audio/${a}.mp3`);
 });
 

@@ -17,6 +17,20 @@ Each run starts from the chosen repository revision. Downloaded artifacts from e
 
 ## Local generation
 
+### Softer trial recordings
+
+The five published trial recordings use the `soft-1` tone adjustment requested after listening: a broad +0.5 dB at 250 Hz, -1.5 dB at 3.2 kHz and -1.5 dB high shelf at 6 kHz. There is no denoising, compression, pitch shift or tempo change. This may reduce sharpness; it does not guarantee removal of synthesis artifacts. The app's saved playback speed is preserved.
+
+The original trial files are retained in commit `e5f213e3782519d290093fd553475cbbec7f5ef7`. Apply the profile once from untouched source recordings, using Python 3 and FFmpeg:
+
+```sh
+python3 scripts/soften-fish-audio.py --source /path/to/original-mp3s --output dist/audio/fish-chonishvili
+```
+
+Source and output directories must differ. For future batches, download the generated artifact, put only the newly generated raw recordings in the source directory, apply this step, then review the audio before publication. Do not reprocess already softened recordings. MP3 encoding uses 192 kb/s to limit additional encoding loss. The browser's `soft-1` URL revision prevents reuse of the earlier cached recordings.
+
+### Generate raw recordings
+
 Use Node.js 22 or newer, with `FISH_API_KEY` supplied securely in the process environment:
 
 ```sh
