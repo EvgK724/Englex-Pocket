@@ -2,7 +2,7 @@
 
 The browser plays prepared MP3 files. The Fish key is used only by this Node.js script or the manual GitHub Actions workflow. Never put the key in `dist/`, browser code, a URL, a commit or a workflow input.
 
-The fixed voice is `089f2e853e064d6fb15f5b5882914b52`. Every request explicitly sets `model: s2.1-pro-free`. The generator never retries with another engine. Access to the voice and free-tier availability must still be confirmed by a successful sample; no samples are included by this setup.
+The fixed voice is `089f2e853e064d6fb15f5b5882914b52`. Every request explicitly sets `model: s2.1-pro-free`. The generator never retries with another engine. A five-card trial was generated successfully on 2026-09-18 and its MP3 files were decoded and checked before publication. Future account access and free-tier availability still depend on Fish Audio.
 
 ## First sample through GitHub
 
