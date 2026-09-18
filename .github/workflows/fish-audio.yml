@@ -1,6 +1,8 @@
 name: Prepare Fish voice recordings
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       limit:
@@ -23,6 +25,7 @@ concurrency:
 
 jobs:
   prepare:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Run five-card Fish voice trial [fish-trial-20260918]')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -35,7 +38,7 @@ jobs:
       - name: Generate a bounded batch with the free engine
         env:
           FISH_API_KEY: ${{ secrets.FISH_API_KEY }}
-          FISH_LIMIT: ${{ inputs.limit }}
+          FISH_LIMIT: ${{ inputs.limit || '5' }}
           FISH_IDS: ${{ inputs.ids }}
         shell: bash
         run: |
