@@ -6,7 +6,7 @@ import {join} from 'node:path';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {ENGINE, VOICE_ID, ENDPOINT} from '../scripts/generate-fish-audio.mjs';
-import {AUDIO_DIRECTORY, INDEX_FILENAME, PREFIX, PROFILE, generateFishLibrary, parseLibraryArgs, publishCheckpoint, retryDelay, selectTrialCards} from '../scripts/generate-fish-library.mjs';
+import {AUDIO_DIRECTORY, INDEX_FILENAME, PREFIX, PROFILE, generateFishLibrary, parseLibraryArgs, publishCheckpoint, retryDelay, selectTrialCards, voiceConfiguration} from '../scripts/generate-fish-library.mjs';
 
 const run = promisify(execFile);
 const mp3 = Buffer.alloc(417);
@@ -29,16 +29,16 @@ async function fixture(t, count = 10) {
 }
 
 test('CLI is default-trial, finite and cannot choose an engine or arbitrary command', () => {
-  assert.deepEqual(parseLibraryArgs([]), {mode: 'trial', publish: false, deadlineMinutes: 250});
-  assert.deepEqual(parseLibraryArgs(['--mode', 'full', '--publish', '--deadline-minutes', '20']), {mode: 'full', publish: true, deadlineMinutes: 20});
-  for (const args of [['--mode', 'everything'], ['--deadline-minutes', '251'], ['--deadline-minutes', '0'], ['--engine', 's2.1-pro'], ['--publish', '--publish'], ['--mode', 'full;echo']]) assert.throws(() => parseLibraryArgs(args));
+  assert.deepEqual(parseLibraryArgs([]), {mode: 'trial', voice: 'english', publish: false, deadlineMinutes: 250});
+  assert.deepEqual(parseLibraryArgs(['--mode', 'full', '--voice', 'accepted', '--publish', '--deadline-minutes', '20']), {mode: 'full', voice: 'accepted', publish: true, deadlineMinutes: 20});
+  for (const args of [['--mode', 'everything'], ['--voice'], ['--voice', 'other'], ['--deadline-minutes', '251'], ['--deadline-minutes', '0'], ['--engine', 's2.1-pro'], ['--publish', '--publish'], ['--mode', 'full;echo']]) assert.throws(() => parseLibraryArgs(args));
   const cards = Array.from({length: 15}, (_, i) => card(i + 1));
   assert.deepEqual(selectTrialCards(cards).map(c => c.word), words);
 });
 
 test('credentials, free model and worker bounds are checked before mutation', async t => {
   const options = await fixture(t);
-  for (const overrides of [{apiKey: ''}, {engine: 's2.1-pro'}, {concurrency: 5}, {deadlineMinutes: 251}, {mode: 'other'}, {checkpointSize: 51}]) {
+  for (const overrides of [{apiKey: ''}, {engine: 's2.1-pro'}, {concurrency: 5}, {deadlineMinutes: 251}, {mode: 'other'}, {voice: 'other'}, {checkpointSize: 51}]) {
     await assert.rejects(generateFishLibrary({...options, ...overrides}));
   }
   assert.deepEqual(await readdir(options.distDir), ['dictionary.json']);
@@ -70,7 +70,7 @@ test('trial sends unchanged normalized text with experimental prefix, fixed free
   assert.equal(status.available, 10);
   assert.equal(status.snapshotCount, 10);
   assert.deepEqual(JSON.parse(await readFile(join(options.distDir, INDEX_FILENAME))), index(Array.from({length: 10}, (_, i) => card(i + 1).id)));
-  assert.equal((await readdir(join(options.workDir, 'raw'))).length, 10);
+  assert.equal((await readdir(join(options.workDir, 'raw', 'english'))).length, 10);
   await assert.rejects(readFile(join(options.distDir, 'fish-chonishvili-index.json')), {code: 'ENOENT'});
 });
 
@@ -81,7 +81,7 @@ test('full run checkpoints every fifty, preserves other voice and resumes withou
   const published = [];
   let firstDeploys = 0;
   const status = await generateFishLibrary({...options, mode: 'full', publish: true,
-    publisher: async ({ids}) => { published.push(ids); return 'a'.repeat(40); }, onFirstPublish: async () => { firstDeploys++; }});
+    publisher: async ({ids}) => { published.push(ids); return 'a'.repeat(40); }, onPublish: async () => { firstDeploys++; }});
   assert.deepEqual(published.map(ids => ids.length), [50, 3]);
   assert.equal(firstDeploys, 1);
   assert.equal(status.available, 53);
@@ -90,6 +90,50 @@ test('full run checkpoints every fifty, preserves other voice and resumes withou
   const resumed = await generateFishLibrary({...options, mode: 'full', fetchImpl: () => assert.fail('must skip existing recordings'), processAudio: () => assert.fail('must not process accepted audio again')});
   assert.equal(resumed.generated, 0);
   assert.equal(resumed.complete, true);
+});
+
+test('accepted voice keeps five approved recordings, sends no accent prefix and stays separate from English files and originals', async t => {
+  const options = await fixture(t, 8);
+  const accepted = voiceConfiguration('accepted');
+  const originalIds = [1, 2, 3, 4, 5].map(n => card(n).id);
+  await mkdir(join(options.distDir, 'audio', accepted.audioDirectory), {recursive: true});
+  const approved = Buffer.from(mp3); approved[approved.length - 1] = 9;
+  for (const id of originalIds) await writeFile(join(options.distDir, 'audio', accepted.audioDirectory, `${id}.mp3`), approved);
+  await writeFile(join(options.distDir, accepted.indexFilename), JSON.stringify({version: 1, voiceId: VOICE_ID, engine: ENGINE, cards: originalIds}));
+  await mkdir(join(options.distDir, 'audio', AUDIO_DIRECTORY), {recursive: true});
+  await writeFile(join(options.distDir, 'audio', AUDIO_DIRECTORY, `${card(8).id}.mp3`), approved);
+  const previousEnglishIndex = JSON.stringify(index([card(8).id]));
+  await writeFile(join(options.distDir, INDEX_FILENAME), previousEnglishIndex);
+  await mkdir(join(options.workDir, 'raw', 'english'), {recursive: true});
+  await writeFile(join(options.workDir, 'raw', 'english', `${card(6).id}.mp3`), approved);
+  const requests = [];
+  const processed = [];
+  const result = await generateFishLibrary({...options, mode: 'full', voice: 'accepted',
+    fetchImpl: async (_url, init) => { requests.push(JSON.parse(init.body).text); assert.equal(init.headers.model, ENGINE); return response(); },
+    processAudio: async args => { processed.push(...await readdir(args.sourceDir)); await processAudio(args); }});
+  assert.deepEqual(new Set(requests), new Set(['healthcare', 'look after', 'cure']));
+  assert.deepEqual(new Set(processed), new Set([6, 7, 8].map(n => `${card(n).id}.mp3`)));
+  assert.equal(result.voice, 'accepted');
+  assert.equal(result.generated, 3);
+  assert.equal(result.available, 8);
+  const manifest = JSON.parse(await readFile(join(options.distDir, accepted.indexFilename)));
+  assert.equal('profile' in manifest, false);
+  assert.equal(manifest.cards.length, 8);
+  for (const id of originalIds) assert.deepEqual(await readFile(join(options.distDir, 'audio', accepted.audioDirectory, `${id}.mp3`)), approved);
+  assert.equal(await readFile(join(options.distDir, INDEX_FILENAME), 'utf8'), previousEnglishIndex);
+  assert.deepEqual(await readFile(join(options.distDir, 'audio', AUDIO_DIRECTORY, `${card(8).id}.mp3`)), approved);
+  assert.deepEqual(await readFile(join(options.workDir, 'raw', 'accepted', `${card(6).id}.mp3`)), mp3);
+  assert.deepEqual(await readFile(join(options.workDir, 'raw', 'english', `${card(6).id}.mp3`)), approved);
+});
+
+test('progress deployment runs for the first and every tenth successful checkpoint', async t => {
+  const options = await fixture(t, 21);
+  let published = 0;
+  const deployedAt = [];
+  await generateFishLibrary({...options, mode: 'full', voice: 'accepted', checkpointSize: 1, publish: true,
+    publisher: async ({voice}) => { assert.equal(voice, 'accepted'); published++; return 'c'.repeat(40); },
+    onPublish: async () => { deployedAt.push(published); }});
+  assert.deepEqual(deployedAt, [1, 10, 20]);
 });
 
 test('only 429/503 retry with bounded backoff and Retry-After, and retries stop after three attempts', async t => {
@@ -146,12 +190,15 @@ test('invalid synthesis never enters public manifest, and deadline retains a fin
 test('existing raw original is reused and processed once after a failed processing attempt', async t => {
   const options = await fixture(t, 1);
   await assert.rejects(generateFishLibrary({...options, processAudio: async () => { throw new Error('processor failed'); }}), /processor failed/);
-  assert.deepEqual(await readFile(join(options.workDir, 'raw', `${card(1).id}.mp3`)), mp3);
+  assert.deepEqual(await readFile(join(options.workDir, 'raw', 'english', `${card(1).id}.mp3`)), mp3);
   const result = await generateFishLibrary({...options, fetchImpl: async () => assert.fail('raw recovery must not synthesize again')});
   assert.equal(result.available, 1);
 });
 
 test('publisher commits only Fish paths on newest main, preserves dictionary changes, and never resets working copy', async t => {
+  for (const voice of ['english', 'accepted']) {
+  const config = voiceConfiguration(voice);
+  const expectedIndex = cards => ({version: 1, voiceId: VOICE_ID, engine: ENGINE, ...(voice === 'english' ? {profile: PROFILE} : {}), cards});
   const options = await fixture(t, 2);
   const repoDir = join(options.workDir, 'repo');
   const remote = join(options.workDir, 'remote.git');
@@ -163,7 +210,7 @@ test('publisher commits only Fish paths on newest main, preserves dictionary cha
   await git('remote', 'add', 'origin', remote);
   await mkdir(join(repoDir, 'dist'));
   await writeFile(join(repoDir, 'dist', 'dictionary.json'), JSON.stringify({cards: [card(1), card(2)]}));
-  await writeFile(join(repoDir, 'dist', INDEX_FILENAME), JSON.stringify(index([])));
+  await writeFile(join(repoDir, 'dist', config.indexFilename), JSON.stringify(expectedIndex([])));
   await writeFile(join(repoDir, 'unrelated.txt'), 'original');
   await git('add', '.'); await git('commit', '-m', 'initial'); await git('push', '-u', 'origin', 'main');
   const firstHead = await git('rev-parse', 'HEAD');
@@ -173,15 +220,16 @@ test('publisher commits only Fish paths on newest main, preserves dictionary cha
   const newMain = await git('rev-parse', 'HEAD');
   await git('checkout', '--detach', firstHead);
   await writeFile(join(repoDir, 'local-only.txt'), 'local changes must survive');
-  await mkdir(join(options.distDir, 'audio', AUDIO_DIRECTORY), {recursive: true});
-  await writeFile(join(options.distDir, 'audio', AUDIO_DIRECTORY, `${card(1).id}.mp3`), mp3);
-  const sha = await publishCheckpoint({repoDir, distDir: options.distDir, workDir: options.workDir, ids: [card(1).id]});
+  await mkdir(join(options.distDir, 'audio', config.audioDirectory), {recursive: true});
+  await writeFile(join(options.distDir, 'audio', config.audioDirectory, `${card(1).id}.mp3`), mp3);
+  const sha = await publishCheckpoint({repoDir, distDir: options.distDir, workDir: options.workDir, ids: [card(1).id], voice});
   assert.equal(await git('rev-parse', `${sha}^`), newMain);
   assert.equal(await git('show', `${sha}:unrelated.txt`), 'concurrent Englex import');
   assert.equal(JSON.parse(await git('show', `${sha}:dist/dictionary.json`)).cards.length, 3);
-  assert.deepEqual(JSON.parse(await git('show', `${sha}:dist/${INDEX_FILENAME}`)), index([card(1).id]));
+  assert.deepEqual(JSON.parse(await git('show', `${sha}:dist/${config.indexFilename}`)), expectedIndex([card(1).id]));
   assert.equal(await git('rev-parse', 'HEAD'), firstHead);
   assert.equal(await readFile(join(repoDir, 'local-only.txt'), 'utf8'), 'local changes must survive');
   const changed = (await git('diff-tree', '--no-commit-id', '--name-only', '-r', sha)).split('\n');
-  assert.deepEqual(changed.sort(), [`dist/audio/${AUDIO_DIRECTORY}/${card(1).id}.mp3`, `dist/${INDEX_FILENAME}`].sort());
+  assert.deepEqual(changed.sort(), [`dist/audio/${config.audioDirectory}/${card(1).id}.mp3`, `dist/${config.indexFilename}`].sort());
+  }
 });

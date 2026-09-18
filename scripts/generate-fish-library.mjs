@@ -17,8 +17,17 @@ const MAX_BYTES = 10 * 1024 * 1024;
 const run = promisify(execFile);
 const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 
+export function voiceConfiguration(voice = 'english') {
+  if (voice === 'english') return {voice, profile: PROFILE, prefix: PREFIX, audioDirectory: AUDIO_DIRECTORY, indexFilename: INDEX_FILENAME, manifestProfile: PROFILE};
+  if (voice === 'accepted') return {voice, profile: 'accepted-clean-v1', prefix: '', audioDirectory: 'fish-chonishvili', indexFilename: 'fish-chonishvili-index.json', manifestProfile: undefined};
+  throw new Error('Voice must be accepted or english.');
+}
+
+const manifestFor = (config, cards) => ({version: 1, voiceId: VOICE_ID, engine: ENGINE,
+  ...(config.manifestProfile ? {profile: config.manifestProfile} : {}), cards});
+
 export function parseLibraryArgs(args) {
-  const options = {mode: 'trial', publish: false, deadlineMinutes: 250};
+  const options = {mode: 'trial', voice: 'english', publish: false, deadlineMinutes: 250};
   const seen = new Set();
   for (let i = 0; i < args.length; i++) {
     const name = args[i];
@@ -28,11 +37,14 @@ export function parseLibraryArgs(args) {
     else if (name === '--mode') {
       options.mode = args[++i];
       if (!['trial', 'full'].includes(options.mode)) throw new Error('Mode must be trial or full.');
+    } else if (name === '--voice') {
+      options.voice = args[++i];
+      if (!['accepted', 'english'].includes(options.voice)) throw new Error('Voice must be accepted or english.');
     } else if (name === '--deadline-minutes') {
       const value = args[++i];
       if (!/^\d+$/.test(value || '') || Number(value) < 1 || Number(value) > 250) throw new Error('Deadline must be 1..250 minutes.');
       options.deadlineMinutes = Number(value);
-    } else throw new Error('Use --mode trial|full, --publish and --deadline-minutes 1..250 only.');
+    } else throw new Error('Use --mode trial|full, --voice accepted|english, --publish and --deadline-minutes 1..250 only.');
   }
   return options;
 }
@@ -52,10 +64,10 @@ export function validateDictionary(raw) {
   return raw.cards;
 }
 
-function validateIndex(raw, validIds) {
-  if (!raw || raw.version !== 1 || raw.voiceId !== VOICE_ID || raw.engine !== ENGINE || raw.profile !== PROFILE ||
+function validateIndex(raw, validIds, config) {
+  if (!raw || raw.version !== 1 || raw.voiceId !== VOICE_ID || raw.engine !== ENGINE || raw.profile !== config.manifestProfile ||
       !Array.isArray(raw.cards) || new Set(raw.cards).size !== raw.cards.length ||
-      raw.cards.some(id => !ID.test(id) || !validIds.has(id))) throw new Error('Incompatible English voice manifest.');
+      raw.cards.some(id => !ID.test(id) || !validIds.has(id))) throw new Error('Incompatible Fish voice manifest.');
   return raw.cards;
 }
 
@@ -80,14 +92,14 @@ export function retryDelay(response, attempt, now = Date.now()) {
   return Math.max(1000 * 2 ** attempt, instructed);
 }
 
-async function fetchRecording(card, {apiKey, fetchImpl, delay, now, deadline}) {
+async function fetchRecording(card, {apiKey, fetchImpl, delay, now, deadline, prefix}) {
   for (let attempt = 0; attempt < 3; attempt++) {
     let response;
     try {
       response = await fetchImpl(ENDPOINT, {
         method: 'POST', redirect: 'error', signal: AbortSignal.timeout(60000),
         headers: {'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', model: ENGINE},
-        body: JSON.stringify({text: PREFIX + speechText(card.word), reference_id: VOICE_ID, format: 'mp3', mp3_bitrate: 128, latency: 'normal'})
+        body: JSON.stringify({text: prefix + speechText(card.word), reference_id: VOICE_ID, format: 'mp3', mp3_bitrate: 128, latency: 'normal'})
       });
     } catch { throw new Error('Fish request failed or timed out; no paid fallback was attempted.'); }
     if ([429, 503].includes(response.status) && attempt < 2) {
@@ -129,7 +141,8 @@ async function softenBatch({sourceDir, outputDir}) {
 
 // An isolated index builds a commit on the latest main without checking out,
 // resetting or overwriting concurrent dictionary imports. Push is never forced.
-export async function publishCheckpoint({repoDir = ROOT, distDir, workDir, ids}) {
+export async function publishCheckpoint({repoDir = ROOT, distDir, workDir, ids, voice = 'english'}) {
+  const config = voiceConfiguration(voice);
   if (!ids.length) return null;
   const indexFile = join(workDir, `publish-index-${randomUUID()}`);
   const git = async (args, extra = {}) => (await run('git', args, {
@@ -141,27 +154,26 @@ export async function publishCheckpoint({repoDir = ROOT, distDir, workDir, ids})
       const parent = await git(['rev-parse', 'origin/main']);
       const cards = validateDictionary(JSON.parse(await git(['show', `${parent}:dist/dictionary.json`])));
       const validIds = new Set(cards.map(card => card.id));
-      const current = validateIndex(JSON.parse(await git(['show', `${parent}:dist/${INDEX_FILENAME}`])), validIds);
+      const current = validateIndex(JSON.parse(await git(['show', `${parent}:dist/${config.indexFilename}`])), validIds, config);
       const additions = ids.filter(id => validIds.has(id) && !current.includes(id));
       if (!additions.length) return null;
       await rm(indexFile, {force: true});
       await git(['read-tree', parent]);
       for (const id of additions) {
-        const file = join(distDir, 'audio', AUDIO_DIRECTORY, `${id}.mp3`);
+        const file = join(distDir, 'audio', config.audioDirectory, `${id}.mp3`);
         if (!isPlausibleMp3(await readFile(file))) throw new Error('Invalid local checkpoint audio.');
         const blob = await git(['hash-object', '-w', file]);
-        await git(['update-index', '--add', '--cacheinfo', `100644,${blob},dist/audio/${AUDIO_DIRECTORY}/${id}.mp3`]);
+        await git(['update-index', '--add', '--cacheinfo', `100644,${blob},dist/audio/${config.audioDirectory}/${id}.mp3`]);
       }
       const combined = new Set([...current, ...additions]);
-      const manifest = {version: 1, voiceId: VOICE_ID, engine: ENGINE, profile: PROFILE,
-        cards: cards.filter(card => combined.has(card.id)).map(card => card.id)};
+      const manifest = manifestFor(config, cards.filter(card => combined.has(card.id)).map(card => card.id));
       const temporaryManifest = join(workDir, 'publish-manifest.json');
       await atomicWrite(temporaryManifest, JSON.stringify(manifest, null, 2) + '\n');
       const blob = await git(['hash-object', '-w', temporaryManifest]);
-      await git(['update-index', '--add', '--cacheinfo', `100644,${blob},dist/${INDEX_FILENAME}`]);
+      await git(['update-index', '--add', '--cacheinfo', `100644,${blob},dist/${config.indexFilename}`]);
       const tree = await git(['write-tree']);
       const commit = await git(['-c', 'user.name=github-actions[bot]', '-c', 'user.email=41898282+github-actions[bot]@users.noreply.github.com',
-        'commit-tree', tree, '-p', parent, '-m', `Add ${additions.length} English Fish voice recordings (${PROFILE})`]);
+        'commit-tree', tree, '-p', parent, '-m', `Add ${additions.length} Fish voice recordings (${config.profile})`]);
       try {
         await git(['push', '--quiet', 'origin', `${commit}:refs/heads/main`]);
         return commit;
@@ -177,9 +189,10 @@ export async function publishCheckpoint({repoDir = ROOT, distDir, workDir, ids})
 }
 
 export async function generateFishLibrary({distDir = join(ROOT, 'dist'), workDir = join(ROOT, '.fish-library'),
-  mode = 'trial', apiKey = process.env.FISH_API_KEY, engine = process.env.FISH_ENGINE || ENGINE,
+  mode = 'trial', voice = 'english', apiKey = process.env.FISH_API_KEY, engine = process.env.FISH_ENGINE || ENGINE,
   concurrency = 4, deadlineMinutes = 250, fetchImpl = globalThis.fetch, processAudio = softenBatch,
-  publish = false, publisher = publishCheckpoint, onFirstPublish = async () => {}, now = Date.now, delay = sleep, checkpointSize = 50} = {}) {
+  publish = false, publisher = publishCheckpoint, onPublish = async () => {}, now = Date.now, delay = sleep, checkpointSize = 50} = {}) {
+  const config = voiceConfiguration(voice);
   if (typeof apiKey !== 'string' || !apiKey.trim()) throw new Error('Set the server-side FISH_API_KEY secret.');
   if (engine !== ENGINE) throw new Error('Only s2.1-pro-free is permitted; paid fallback is disabled.');
   if (!['trial', 'full'].includes(mode)) throw new Error('Mode must be trial or full.');
@@ -189,9 +202,9 @@ export async function generateFishLibrary({distDir = join(ROOT, 'dist'), workDir
   distDir = resolve(distDir); workDir = resolve(workDir);
   const cards = validateDictionary(JSON.parse(await readFile(join(distDir, 'dictionary.json'), 'utf8')));
   const validIds = new Set(cards.map(card => card.id));
-  const oldIndex = await optionalRead(join(distDir, INDEX_FILENAME));
-  if (oldIndex) validateIndex(JSON.parse(oldIndex.toString()), validIds);
-  const audioDir = join(distDir, 'audio', AUDIO_DIRECTORY);
+  const oldIndex = await optionalRead(join(distDir, config.indexFilename));
+  if (oldIndex) validateIndex(JSON.parse(oldIndex.toString()), validIds, config);
+  const audioDir = join(distDir, 'audio', config.audioDirectory);
   const available = new Set();
   for (const card of cards) {
     const bytes = await optionalRead(join(audioDir, `${card.id}.mp3`));
@@ -199,24 +212,24 @@ export async function generateFishLibrary({distDir = join(ROOT, 'dist'), workDir
   }
   const selected = mode === 'trial' ? selectTrialCards(cards) : cards;
   const pending = selected.filter(card => !available.has(card.id));
-  const rawDir = join(workDir, 'raw');
+  const rawDir = join(workDir, 'raw', voice);
   const deadline = now() + deadlineMinutes * 60000;
-  const status = {profile: PROFILE, mode, snapshotCount: selected.length, generated: 0, available: available.size,
+  const status = {profile: config.profile, voice, mode, snapshotCount: selected.length, generated: 0, available: available.size,
     remaining: pending.length, publishedCommits: 0, publishedSha: null, complete: pending.length === 0, stopReason: null};
   const writeStatus = () => atomicWrite(join(workDir, 'status.json'), JSON.stringify(status, null, 2) + '\n');
-  const writeIndex = () => atomicWrite(join(distDir, INDEX_FILENAME), JSON.stringify({version: 1, voiceId: VOICE_ID, engine: ENGINE, profile: PROFILE,
-    cards: cards.filter(card => available.has(card.id)).map(card => card.id)}, null, 2) + '\n');
+  const writeIndex = () => atomicWrite(join(distDir, config.indexFilename), JSON.stringify(
+    manifestFor(config, cards.filter(card => available.has(card.id)).map(card => card.id)), null, 2) + '\n');
   const publishIds = async ids => {
     if (!publish || !ids.length) return;
-    const sha = await publisher({distDir, workDir, ids});
+    const sha = await publisher({distDir, workDir, ids, voice});
     if (sha) {
       status.publishedCommits++; status.publishedSha = sha;
       await writeStatus();
-      if (status.publishedCommits === 1) await onFirstPublish();
+      if (status.publishedCommits === 1 || status.publishedCommits % 10 === 0) await onPublish();
     }
   };
   await mkdir(rawDir, {recursive: true});
-  await atomicWrite(join(workDir, 'queue.json'), JSON.stringify({profile: PROFILE, mode, cards: selected.map(card => ({id: card.id, text: speechText(card.word)}))}, null, 2) + '\n');
+  await atomicWrite(join(workDir, 'queue.json'), JSON.stringify({profile: config.profile, voice, mode, cards: selected.map(card => ({id: card.id, text: speechText(card.word)}))}, null, 2) + '\n');
   await writeStatus();
   try {
     // A restored artifact may contain completed files whose previous push failed.
@@ -236,7 +249,7 @@ export async function generateFishLibrary({distDir = join(ROOT, 'dist'), workDir
           const card = batch[cursor++];
           try {
             const saved = await optionalRead(join(rawDir, `${card.id}.mp3`));
-            const bytes = saved && isPlausibleMp3(saved) ? saved : await fetchRecording(card, {apiKey: apiKey.trim(), fetchImpl, delay, now, deadline});
+            const bytes = saved && isPlausibleMp3(saved) ? saved : await fetchRecording(card, {apiKey: apiKey.trim(), fetchImpl, delay, now, deadline, prefix: config.prefix});
             await atomicWrite(join(rawDir, `${card.id}.mp3`), bytes);
             await copyFile(join(rawDir, `${card.id}.mp3`), join(sourceDir, `${card.id}.mp3`));
             ready.push(card);
@@ -276,11 +289,11 @@ export async function generateFishLibrary({distDir = join(ROOT, 'dist'), workDir
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   try {
-    const status = await generateFishLibrary({...parseLibraryArgs(process.argv.slice(2)), onFirstPublish: async () => {
+    const status = await generateFishLibrary({...parseLibraryArgs(process.argv.slice(2)), onPublish: async () => {
       try { await run('gh', ['workflow', 'run', 'pages.yml', '--ref', 'main'], {cwd: ROOT, maxBuffer: 1024 * 1024}); }
-      catch { console.error('First deployment dispatch failed; the workflow will retry deployment after generation.'); }
+      catch { console.error('Progress deployment dispatch failed; the workflow will retry deployment after generation.'); }
     }});
-    console.log(`English Fish voice: ${status.generated} prepared, ${status.available} available, ${status.remaining} selected recordings remaining.`);
+    console.log(`Fish voice (${status.voice}): ${status.generated} prepared, ${status.available} available, ${status.remaining} selected recordings remaining.`);
     if (!status.complete) { console.error('Time limit reached; saved recordings are retained. Resume this finite queue with another manual run.'); process.exitCode = 2; }
   } catch (error) {
     const secret = process.env.FISH_API_KEY;

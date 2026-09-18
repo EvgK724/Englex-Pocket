@@ -17,25 +17,30 @@ Each run starts from the chosen repository revision. Downloaded artifacts from e
 
 ## Local generation
 
-### English pronunciation profile and complete dictionary
+### Accepted voice, English pronunciation trial and complete dictionary
 
 The card view and settings share one saved voice choice. Each card reports whether the selected Fish recording is ready; missing recordings use the device voice. The original five `clean-1` recordings remain separate and unchanged.
 
 The independent `en-gb-v1` profile adds `[British English accent, non-rhotic pronunciation] ` before the normalized synthesis text. This is an experimental S2.1 natural-language cue, not a guaranteed accent setting. Dictionary spelling is unchanged. In particular, the generator does not delete final `r` or alter linking `r` in phrases. Listen to the trial before judging the accent; a valid MP3 alone does not establish pronunciation quality.
 
-**Actions → Prepare English Fish voice library → Run workflow** offers two finite modes:
+**Actions → Prepare Fish voice library → Run workflow** has a separate voice selector:
+
+- `accepted`: the approved voice and gentle processing, with no accent instruction. It fills `audio/fish-chonishvili/` and the original `fish-chonishvili-index.json`; the five existing approved recordings are kept byte-for-byte.
+- `english` (default): the separate experimental `en-gb-v1` profile. Its files and raw recordings are isolated from the accepted voice. Keep this at `trial` until listening to the pronunciation comparison.
+
+Both voices offer two finite modes:
 
 - `trial`: ten existing entries, including `doctor`, `teacher`, `far away` and `take care of`.
 - `full`: the current dictionary snapshot, with at most 10,000 cards, four simultaneous requests and a 250-minute deadline. It skips valid existing profile recordings and publishes completed batches of up to 50. Rerun `full` to resume a partial run.
 
-The initial deployment commit can start the trial with the exact prefix `Run English accent trial [fish-en-gb-v1]`. Ordinary pushes do not synthesize audio. There is no recurring schedule or paid-model fallback. HTTP 429/503 receive at most three attempts with bounded delay; other errors stop the run and preserve completed work.
+The exact commit prefix `Run English accent trial [fish-en-gb-v1]` starts only the English trial. The separate prefix `Run accepted Fish dictionary [fish-all-v1]` starts only the full accepted voice. Ordinary pushes do not synthesize audio. There is no recurring schedule or paid-model fallback. HTTP 429/503 receive at most three attempts with bounded delay; other errors stop the run and preserve completed work.
 
-New originals receive the existing gentle EQ and denoising once, without stronger noise treatment. Processed MP3s and their index are committed together on top of the latest `main`, preserving concurrent dictionary imports. The first and final successful checkpoints request a Pages deployment. Raw recordings and run status are retained in the workflow artifact for 14 days. Coverage is refreshed in the app while it is open and online.
+New originals receive the existing gentle EQ and denoising once, without stronger noise treatment. Processed MP3s and their index are committed together on top of the latest `main`, preserving concurrent dictionary imports. The first, every tenth and final successful checkpoints request a Pages deployment, so completed recordings become available during a long run. Raw recordings, queue and run status are retained in the workflow artifact for 14 days. Coverage is refreshed in the app while it is open and online. A no-op rerun also requests Pages deployment when recordings already exist, allowing recovery from a deployment failure without resynthesis.
 
 ```sh
 node --test tests/fish-library.test.mjs
-node scripts/generate-fish-library.mjs --mode trial
-node scripts/generate-fish-library.mjs --mode full --publish --deadline-minutes 250
+node scripts/generate-fish-library.mjs --voice english --mode trial
+node scripts/generate-fish-library.mjs --voice accepted --mode full --publish --deadline-minutes 250
 ```
 
 Local publishing requires an authenticated Git remote. The API key remains server-side. English profile files are stored only under `audio/fish-chonishvili-en-gb-v1/` and `fish-chonishvili-en-gb-v1-index.json`.

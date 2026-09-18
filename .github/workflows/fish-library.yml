@@ -1,8 +1,16 @@
-name: Prepare English Fish voice library
+name: Prepare Fish voice library
 
 on:
   workflow_dispatch:
     inputs:
+      voice:
+        description: 'Accepted voice or experimental English pronunciation'
+        required: true
+        default: english
+        type: choice
+        options:
+          - english
+          - accepted
       mode:
         description: 'Trial pronunciation samples or the finite current dictionary'
         required: true
@@ -26,7 +34,8 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' &&
-      startsWith(github.event.head_commit.message, 'Run English accent trial [fish-en-gb-v1]'))
+      (startsWith(github.event.head_commit.message, 'Run English accent trial [fish-en-gb-v1]') ||
+      startsWith(github.event.head_commit.message, 'Run accepted Fish dictionary [fish-all-v1]')))
     runs-on: ubuntu-latest
     timeout-minutes: 330
     permissions:
@@ -59,15 +68,20 @@ jobs:
         env:
           FISH_API_KEY: ${{ secrets.FISH_API_KEY }}
           GH_TOKEN: ${{ github.token }}
-          # A push can only run the small trial, regardless of commit contents.
-          FISH_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'trial' }}
+          # Each explicitly recognized push marker has one fixed voice and mode.
+          FISH_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || (startsWith(github.event.head_commit.message, 'Run accepted Fish dictionary [fish-all-v1]') && 'full' || 'trial') }}
+          FISH_VOICE: ${{ github.event_name == 'workflow_dispatch' && inputs.voice || (startsWith(github.event.head_commit.message, 'Run accepted Fish dictionary [fish-all-v1]') && 'accepted' || 'english') }}
         shell: bash
         run: |
           case "$FISH_MODE" in
             trial|full) ;;
             *) echo 'Unsupported generation mode.' >&2; exit 1 ;;
           esac
-          node scripts/generate-fish-library.mjs --mode "$FISH_MODE" --publish --deadline-minutes 250
+          case "$FISH_VOICE" in
+            accepted|english) ;;
+            *) echo 'Unsupported voice profile.' >&2; exit 1 ;;
+          esac
+          node scripts/generate-fish-library.mjs --mode "$FISH_MODE" --voice "$FISH_VOICE" --publish --deadline-minutes 250
       - name: Read checkpoint publication status
         id: publication
         if: ${{ !cancelled() }}
@@ -100,10 +114,13 @@ jobs:
         if: ${{ !cancelled() && steps.generate.outcome != 'skipped' }}
         uses: actions/upload-artifact@v4
         with:
-          name: fish-chonishvili-en-gb-${{ github.run_id }}-${{ github.run_attempt }}
+          name: fish-chonishvili-library-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            .fish-library/raw/*.mp3
+            .fish-library/raw/**/*.mp3
+            .fish-library/queue.json
             .fish-library/status.json
+            dist/audio/fish-chonishvili/*.mp3
+            dist/fish-chonishvili-index.json
             dist/audio/fish-chonishvili-en-gb-v1/*.mp3
             dist/fish-chonishvili-en-gb-v1-index.json
           include-hidden-files: true
