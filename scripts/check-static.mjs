@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFile, stat} from 'node:fs/promises';
 import {execFileSync} from 'node:child_process';
 import {assetUrl} from '../dist/paths.mjs';
-import {validateFishManifest} from '../dist/fish-voice.mjs';
+import {FISH_PROFILES, validateFishManifest} from '../dist/fish-voice.mjs';
 import {ORIGINAL_COUNT, validateDictionary, validateAudioIndex} from './dictionary-integrity.mjs';
 
 const root = new URL('../dist/', import.meta.url);
@@ -22,11 +22,13 @@ for (const id of index.cards) {
   audioBytes += info.size;
 }
 
-const fishIds=validateFishManifest(JSON.parse(await read('fish-chonishvili-index.json')),new Set(dictionary.cards.map(c=>c.id)));
-assert.notEqual(fishIds,null,'Invalid optional Fish voice manifest');
-for(const id of fishIds){
-  const info=await stat(new URL(`audio/fish-chonishvili/${id}.mp3`,root));
-  assert.ok(info.isFile()&&info.size>100,`Missing Fish recording: ${id}`);
+for(const profile of FISH_PROFILES){
+  const fishIds=validateFishManifest(JSON.parse(await read(profile.manifest)),new Set(dictionary.cards.map(c=>c.id)),profile.profile);
+  assert.notEqual(fishIds,null,`Invalid optional Fish voice manifest: ${profile.manifest}`);
+  for(const id of fishIds){
+    const info=await stat(new URL(`${profile.directory}/${id}.mp3`,root));
+    assert.ok(info.isFile()&&info.size>100,`Missing Fish recording: ${profile.profile||'original'}/${id}`);
+  }
 }
 
 const html = (await read('index.html')).toString();

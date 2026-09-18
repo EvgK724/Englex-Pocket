@@ -1,0 +1,111 @@
+name: Prepare English Fish voice library
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Trial pronunciation samples or the finite current dictionary'
+        required: true
+        default: trial
+        type: choice
+        options:
+          - trial
+          - full
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fish-voice-recordings
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' &&
+      startsWith(github.event.head_commit.message, 'Run English accent trial [fish-en-gb-v1]'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Ensure the accepted audio processing tools are available
+        shell: bash
+        run: |
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install --yes ffmpeg
+          fi
+          ffmpeg -version | head -n 1
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+      - name: Test finite generation and safe publication without API calls
+        run: node --test tests/fish-library.test.mjs
+      - name: Prepare recordings and publish resumable checkpoints
+        id: generate
+        env:
+          FISH_API_KEY: ${{ secrets.FISH_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          # A push can only run the small trial, regardless of commit contents.
+          FISH_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'trial' }}
+        shell: bash
+        run: |
+          case "$FISH_MODE" in
+            trial|full) ;;
+            *) echo 'Unsupported generation mode.' >&2; exit 1 ;;
+          esac
+          node scripts/generate-fish-library.mjs --mode "$FISH_MODE" --publish --deadline-minutes 250
+      - name: Read checkpoint publication status
+        id: publication
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const statusPath = '.fish-library/status.json';
+          if (!fs.existsSync(statusPath)) process.exit(0);
+          const status = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
+          const published = Number.isInteger(status.publishedCommits) && status.publishedCommits > 0;
+          const deploy = published || (Number.isInteger(status.available) && status.available > 0);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `published=${published}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `deploy=${deploy}\n`);
+          const count = (value) => Number.isInteger(value) && value >= 0 ? value : 'unknown';
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+            `Fish voice: ${count(status.generated)} generated; ${count(status.available)} available; ` +
+            `${count(status.remaining)} remaining.\n\n` +
+            `Published checkpoints: ${count(status.publishedCommits)}. Complete: ${status.complete === true}.\n`);
+          NODE
+      - name: Publish the latest successful checkpoint to Pages
+        # GITHUB_TOKEN pushes do not trigger the separate Pages push workflow.
+        # Deploy partial progress and let a no-op rerun recover a prior Pages failure.
+        if: ${{ !cancelled() && steps.publication.outputs.deploy == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run pages.yml --ref main
+      - name: Preserve original and processed recordings for review
+        if: ${{ !cancelled() && steps.generate.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: fish-chonishvili-en-gb-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .fish-library/raw/*.mp3
+            .fish-library/status.json
+            dist/audio/fish-chonishvili-en-gb-v1/*.mp3
+            dist/fish-chonishvili-en-gb-v1-index.json
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14

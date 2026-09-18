@@ -160,6 +160,18 @@ option { background: #141923; color: #ececf2; }
 input[type="range"] { accent-color: #d8c28e; }
 .install-mark { color: #e3cf9a; background: linear-gradient(135deg, #2d3141, #151923); border: 1px solid #665c44; font-family: Georgia, serif; }
 .toast { color: #f3f1eb; background: #2a3142; border: 1px solid #776a4b; box-shadow: 0 12px 35px #00000070; }
+.card-voice { display: grid; gap: 7px; min-width: 0; margin-top: 16px; }
+.card-voice label { color: var(--muted); font-size: .85rem; font-weight: 600; }
+.card-voice select { width: 100%; min-width: 0; min-height: 48px; font-size: 1rem; }
+.card-voice p { color: var(--muted); font-size: .82rem; line-height: 1.4; overflow-wrap: anywhere; }
+.phone-layout .card-voice { margin-top: 0; }
+@media (max-width: 1024px) and (max-height: 600px) and (pointer: coarse) {
+  .phone-layout .card-voice { grid-column: 1 / -1; grid-row: 1; }
+  .phone-layout .flashcard { grid-row: 2 / 5; }
+  .phone-layout .flip-row { grid-row: 2; }
+  .phone-layout .rating-row { grid-row: 3; }
+  .phone-layout .card-navigation { grid-row: 4; }
+}
 @media (max-width: 820px) {
   .app-header { height: 82px; }
   .workspace { padding-top: 22px; gap: 20px; }

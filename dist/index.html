@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./nocturne.css">
   <link rel="stylesheet" href="./phone.css">
-  <script type="module" src="./app.js?v=fish-voice-clean-1"></script>
+  <script type="module" src="./app.js?v=card-voices-2"></script>
 </head>
 <body>
   <a class="skip-link" href="#study">К карточке</a>
@@ -59,6 +59,7 @@
               </div>
             </div>
           </article>
+          <div class="card-voice"><label for="card-voice-select">Голос для карточек</label><select id="card-voice-select" aria-describedby="card-voice-note"><option value="auto">AI Voice · мягкий голос</option></select><p id="card-voice-note">Выбор сохраняется для следующих карточек.</p></div>
           <div class="flip-row"><button id="flip" class="flip-button" aria-controls="flashcard" aria-pressed="false"><span data-icon="rotate"></span><span id="flip-label">Показать перевод</span><kbd>пробел</kbd></button></div>
           <div class="rating-row" id="rating-row"><button id="mark-review" class="review-button"><span data-icon="repeat"></span>Повторить</button><button id="mark-known" class="known-button"><span data-icon="check"></span>Знаю</button></div>
           <nav class="card-navigation" aria-label="Переключение карточек"><button id="previous" class="icon-button" aria-label="Предыдущая карточка"><span data-icon="left"></span></button><span id="progress-note">Сначала вспомните значение</span><button id="next" class="icon-button" aria-label="Следующая карточка"><span data-icon="right"></span></button></nav>
