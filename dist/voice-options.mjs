@@ -2,10 +2,11 @@
 export const ENGLEX_AI_VOICE_URI = 'englex-ai';
 export const CHONISHVILI_A_VOICE_URI = 'fish:089f2e853e064d6fb15f5b5882914b52:a-v1';
 export const SOFT_VOICE_URI = 'auto';
+export const VOICE_PREFERENCE_VERSION = 3;
 export const VOICE_OPTIONS = Object.freeze([
-  Object.freeze({uri:ENGLEX_AI_VOICE_URI,label:'Englex · AI'}),
-  Object.freeze({uri:CHONISHVILI_A_VOICE_URI,label:'Чонишвили · вариант A'}),
-  Object.freeze({uri:SOFT_VOICE_URI,label:'AI Voice · мягкий голос'})
+  Object.freeze({uri:ENGLEX_AI_VOICE_URI,label:'Ryan'}),
+  Object.freeze({uri:CHONISHVILI_A_VOICE_URI,label:'Choni'}),
+  Object.freeze({uri:SOFT_VOICE_URI,label:'Doris'})
 ]);
 export const CHONISHVILI_A_MANIFEST = 'fish-chonishvili-a-v1-index.json';
 export const ENGLEX_AI_MANIFEST = 'englex-ai-index.json';
@@ -15,10 +16,10 @@ export const SOFT_VOICE_MANIFEST = 'audio-index.json';
 
 export function migrateVoicePreference(raw) {
   const uri=raw?.voiceURI;
-  if(uri===ENGLEX_AI_VOICE_URI||uri===CHONISHVILI_A_VOICE_URI)return uri;
-  // Only an explicit recorded-soft preference survives the old auto/device era.
-  if(uri===SOFT_VOICE_URI&&[1,2].includes(raw?.recordedVoiceVersion))return SOFT_VOICE_URI;
-  return CHONISHVILI_A_VOICE_URI;
+  // Apply the requested Ryan default once. Later explicit choices are retained.
+  if(Number.isInteger(raw?.recordedVoiceVersion)&&raw.recordedVoiceVersion>=VOICE_PREFERENCE_VERSION&&
+      VOICE_OPTIONS.some(voice=>voice.uri===uri))return uri;
+  return ENGLEX_AI_VOICE_URI;
 }
 
 export function validateEnglexAIManifest(raw,validIds) {
@@ -75,7 +76,7 @@ export function recordingForVoice({cardId,voiceURI,softIds=new Set(),chonishvili
       path=englexRecordings.get(cardId);key=`${voiceURI}:original:${cardId}`;source='englex-ai';
     }else if(englexRyanIds.has(cardId)){
       path=`audio/englex-ryan/${cardId}.mp3?v=ryan-v1`;key=`${voiceURI}:generated:${cardId}`;
-      source='generated';label=`${option.label} · синтез Ryan`;
+      source='generated';
     }
   }
   // No voice substitutes for another: an absent record is genuinely unavailable.

@@ -3,8 +3,9 @@ import {readFile} from 'node:fs/promises';
 import {runInNewContext} from 'node:vm';
 import {test} from 'node:test';
 import {RecordedSpeech} from '../dist/recorded-speech.mjs';
+import {sanitizeProgress} from '../dist/core.mjs';
 import {
-  VOICE_OPTIONS,ENGLEX_AI_VOICE_URI,CHONISHVILI_A_VOICE_URI,SOFT_VOICE_URI,
+  VOICE_OPTIONS,VOICE_PREFERENCE_VERSION,ENGLEX_AI_VOICE_URI,CHONISHVILI_A_VOICE_URI,SOFT_VOICE_URI,
   migrateVoicePreference,validateEnglexAIManifest,validateEnglexRyanManifest,validateChonishviliAManifest,validateSoftVoiceManifest,ENGLEX_RYAN_VOICE,ENGLEX_RYAN_MANIFEST,
   voiceCardIds,recordingForVoice
 } from '../dist/voice-options.mjs';
@@ -13,16 +14,58 @@ const a='aaaaaaaaaaaaaaaaaaaa',b='bbbbbbbbbbbbbbbbbbbb',c='cccccccccccccccccccc'
 const validIds=new Set([a,b]);
 const data={softIds:new Set([a,b]),chonishviliAIds:new Set([a]),englexRecordings:new Map([[b,`audio/englex-ai/${b}.mp3`]])};
 
-test('voice preference migrates removed choices while keeping explicit soft and new selections',()=>{
-  assert.equal(migrateVoicePreference(null),CHONISHVILI_A_VOICE_URI);
-  for(const uri of ['auto','device:auto','Samantha','fish:089f2e853e064d6fb15f5b5882914b52','fish:089f2e853e064d6fb15f5b5882914b52:en-gb-v1'])
-    assert.equal(migrateVoicePreference({voiceURI:uri}),CHONISHVILI_A_VOICE_URI);
-  for(const uri of VOICE_OPTIONS.map(voice=>voice.uri))
-    assert.equal(migrateVoicePreference({voiceURI:uri,recordedVoiceVersion:2}),uri);
-  const progress={voiceURI:'auto',recordedVoiceVersion:1,stars:[a],ratings:{[b]:'known'},currentId:b,rate:.8};
+test('Ryan default migrates old preferences once and retains every later explicit choice without changing progress',()=>{
+  assert.equal(migrateVoicePreference(null),ENGLEX_AI_VOICE_URI);
+  for(const recordedVoiceVersion of [undefined,1,2]){
+    for(const voiceURI of ['auto','device:auto','Samantha',CHONISHVILI_A_VOICE_URI,ENGLEX_AI_VOICE_URI])
+      assert.equal(migrateVoicePreference({voiceURI,recordedVoiceVersion}),ENGLEX_AI_VOICE_URI);
+  }
+  for(const uri of VOICE_OPTIONS.map(voice=>voice.uri)){
+    assert.equal(migrateVoicePreference({voiceURI:uri,recordedVoiceVersion:VOICE_PREFERENCE_VERSION}),uri);
+    assert.equal(migrateVoicePreference({voiceURI:uri,recordedVoiceVersion:VOICE_PREFERENCE_VERSION+1}),uri);
+  }
+  assert.equal(migrateVoicePreference({voiceURI:'removed-voice',recordedVoiceVersion:VOICE_PREFERENCE_VERSION}),ENGLEX_AI_VOICE_URI);
+  const progress={voiceURI:'auto',recordedVoiceVersion:2,stars:[a],ratings:{[b]:'known'},currentId:b,rate:.8};
   const before=structuredClone(progress);
-  assert.equal(migrateVoicePreference(progress),SOFT_VOICE_URI);
-  assert.deepEqual(progress,before,'migration does not mutate learning progress');
+  assert.equal(migrateVoicePreference(progress),ENGLEX_AI_VOICE_URI);
+  assert.deepEqual(progress,before,'migration must not mutate learning progress');
+});
+
+test('primary menus and runtime labels are exactly Ryan, Choni and Doris with Ryan initially selected',async()=>{
+  assert.deepEqual(VOICE_OPTIONS.map(voice=>voice.label),['Ryan','Choni','Doris']);
+  const html=await readFile(new URL('../dist/index.html',import.meta.url),'utf8');
+  const menus=[...html.matchAll(/<select id="(voice-select|card-voice-select)"[^>]*>([\s\S]*?)<\/select>/g)];
+  assert.equal(menus.length,2);
+  for(const [,id,markup] of menus){
+    assert.deepEqual([...markup.matchAll(/<option[^>]*>([^<]+)<\/option>/g)].map(match=>match[1]),['Ryan','Choni','Doris'],id);
+    assert.match(markup,/<option value="englex-ai" selected>Ryan<\/option>/);
+    assert.equal((markup.match(/\bselected\b/g)||[]).length,1);
+  }
+  const app=await readFile(new URL('../dist/app.js',import.meta.url),'utf8');
+  const source=app.slice(app.indexOf('const state='),app.indexOf('let byId='));
+  assert.equal(runInNewContext(`${source}\nstate.voiceURI`,{ENGLEX_AI_VOICE_URI}),ENGLEX_AI_VOICE_URI);
+  assert.doesNotMatch(html,/Englex · AI|Чонишвили · вариант A|AI Voice · мягкий голос/);
+});
+
+test('actual progress load/save records the one-time Ryan migration without resetting learning state',async()=>{
+  const app=await readFile(new URL('../dist/app.js',import.meta.url),'utf8');
+  const original={version:1,recordedVoiceVersion:2,voiceURI:CHONISHVILI_A_VOICE_URI,stars:[a],ratings:{[a]:'review',[b]:'known'},currentId:b,rate:1.05,kind:'phrasal',sort:'alphabetical'};
+  let stored=JSON.stringify(original);
+  const context={state:{stars:new Set(),ratings:{},voiceURI:ENGLEX_AI_VOICE_URI},currentId:null,byId:new Map([[a,{id:a}],[b,{id:b}]]),STORAGE_KEY:'englex-pocket-v1',VOICE_PREFERENCE_VERSION,VOICE_OPTIONS,ENGLEX_AI_VOICE_URI,CHONISHVILI_A_VOICE_URI,SOFT_VOICE_URI,migrateVoicePreference,sanitizeProgress,storageWarning:false,toast:()=>assert.fail('valid progress should load'),resetSpeech(){},localStorage:{getItem:()=>stored,setItem:(key,value)=>{assert.equal(key,'englex-pocket-v1');stored=value;}}};
+  context.current=()=>context.byId.get(context.currentId)||null;
+  runInNewContext(app.slice(app.indexOf('function progress(){'),app.indexOf('function updateCounts(){')),context);
+  runInNewContext(app.slice(app.indexOf('function selectVoice(value){'),app.indexOf('function updateAudioButtons(){')),context);
+  runInNewContext('loadProgress();save();',context);
+  const migrated=JSON.parse(stored);
+  assert.deepEqual(migrated,{...original,recordedVoiceVersion:VOICE_PREFERENCE_VERSION,voiceURI:ENGLEX_AI_VOICE_URI});
+  for(const uri of [CHONISHVILI_A_VOICE_URI,SOFT_VOICE_URI]){
+    context.requestedURI=uri;
+    runInNewContext('selectVoice(requestedURI);',context);
+    assert.equal(JSON.parse(stored).recordedVoiceVersion,VOICE_PREFERENCE_VERSION);
+    context.state.voiceURI=ENGLEX_AI_VOICE_URI;
+    runInNewContext('loadProgress();save();',context);
+    assert.deepEqual(JSON.parse(stored),{...original,recordedVoiceVersion:VOICE_PREFERENCE_VERSION,voiceURI:uri},'subsequent explicit choice and every learning field survive reload');
+  }
 });
 
 test('Englex index accepts only dictionary IDs with their own local recording path',()=>{
@@ -52,7 +95,7 @@ test('Englex coverage is the union, originals take priority and generated files 
   const generated=recordingForVoice({...voices,cardId:b,voiceURI:ENGLEX_AI_VOICE_URI});
   assert.equal(original.path,`audio/englex-ai/${a}.mp3`);assert.equal(original.source,'englex-ai');
   assert.equal(generated.path,`audio/englex-ryan/${b}.mp3?v=ryan-v1`);assert.equal(generated.source,'generated');
-  assert.match(generated.label,/синтез Ryan/);
+  assert.equal(generated.label,'Ryan');
   assert.equal(recordingForVoice({...voices,cardId:a,voiceURI:ENGLEX_AI_VOICE_URI,failedRecordings:new Set([original.key])}),null,'failed original is not silently exchanged for generated audio');
   assert.equal(recordingForVoice({...voices,cardId:a,voiceURI:ENGLEX_AI_VOICE_URI,failedRecordings:new Set([`${ENGLEX_AI_VOICE_URI}:generated:${a}`])}).source,'englex-ai','an original added later is not blocked by a previous generated-recording failure');
   assert.equal(recordingForVoice({...voices,cardId:b,voiceURI:SOFT_VOICE_URI}).path,`audio/${b}.mp3`,'other two choices keep their own voice');
@@ -77,7 +120,7 @@ test('each option routes only its own recording and an unavailable voice has no 
   assert.ok(route(SOFT_VOICE_URI,a,new Set([`${CHONISHVILI_A_VOICE_URI}:${a}`])),'failed A does not disable soft');
 });
 
-async function uiContext(preferred=CHONISHVILI_A_VOICE_URI){
+async function uiContext(preferred=ENGLEX_AI_VOICE_URI){
   const app=await readFile(new URL('../dist/app.js',import.meta.url),'utf8');
   const nodes=new Map();
   const node=id=>{
@@ -94,7 +137,7 @@ async function uiContext(preferred=CHONISHVILI_A_VOICE_URI){
 }
 
 test('both menus always expose exactly three choices, including a selected voice with pending audio',async()=>{
-  const {context,node}=await uiContext();
+  const {context,node}=await uiContext(CHONISHVILI_A_VOICE_URI);
   runInNewContext('refreshVoices();updateAudioButtons();',context);
   for(const id of ['voice-select','card-voice-select']){
     assert.deepEqual(node(id).options.map(option=>option.value),VOICE_OPTIONS.map(voice=>voice.uri));
@@ -114,19 +157,18 @@ test('both menus always expose exactly three choices, including a selected voice
   assert.equal(node('card-voice-select').value,SOFT_VOICE_URI);
 });
 
-test('same Englex choice clearly identifies original and generated recordings on the card and preview',async()=>{
+test('card readiness stays concise while Settings and previews preserve original and generated provenance',async()=>{
   const {context,node}=await uiContext(ENGLEX_AI_VOICE_URI);
   context.englexRecordings.set(a,`audio/englex-ai/${a}.mp3`);context.englexRyanIds.add(a);context.englexRyanIds.add(b);
   runInNewContext('refreshVoices();updateAudioButtons();',context);
   assert.equal(node('card-voice-select').options.length,3);
   assert.equal(node('card-voice-select').value,ENGLEX_AI_VOICE_URI);
-  assert.match(node('card-voice-note').textContent,/2 из 2/);
-  assert.match(node('card-voice-note').textContent,/синтез Ryan \(Microsoft Edge\)/);
+  assert.equal(node('card-voice-note').textContent,'Выбран для всей коллекции.');
   assert.match(node('voice-test-note').textContent,/Current phrase · синтез Ryan/);
   assert.match(node('englex-voice-provenance').textContent,/1 оригинальных.*1 дополнительных/);
   context.englexRecordings.set(b,`audio/englex-ai/${b}.mp3`);
   runInNewContext('refreshVoices();updateAudioButtons();',context);
-  assert.match(node('card-voice-note').textContent,/Оригинальная запись Englex/);
+  assert.equal(node('card-voice-note').textContent,'Выбран для всей коллекции.');
   assert.match(node('englex-voice-provenance').textContent,/2 оригинальных.*0 дополнительных/);
 });
 
@@ -136,7 +178,7 @@ test('play starts synchronously from the click handler and failure never plays a
   runInNewContext('pronounce(current(),$("speak-front"));',context);
   assert.equal(context.played,`audio/englex-ai/${b}.mp3`);
   context.playbackCallbacks.onStart();
-  assert.match(node('audio-status').textContent,/Englex · AI: Current phrase/);
+  assert.match(node('audio-status').textContent,/Ryan: Current phrase/);
   context.playbackCallbacks.onFinish();
   context.playbackCallbacks.onError();
   assert.equal(node('speak-front').disabled,true);
@@ -170,7 +212,7 @@ test('real player failure clears busy state and reset makes the same speaker ret
   runInNewContext('pronounce(current(),$("speak-front"));',context);
   assert.equal(media.length,2);
   media[1].onplaying();
-  assert.match(node('audio-status').textContent,/Englex · AI: Current phrase/);
+  assert.match(node('audio-status').textContent,/Ryan: Current phrase/);
   media[1].onended();
   assert.equal(node('speak-front').disabled,false);
   assert.equal(node('speak-front').getAttribute('aria-busy'),undefined);
