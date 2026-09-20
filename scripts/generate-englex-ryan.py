@@ -1,7 +1,7 @@
-"""Draft: fixed Microsoft Ryan generation, separate from downloaded Englex audio.
+"""Approved Microsoft Ryan generation, separate from downloaded Englex audio.
 
-Activation is pending approval for dictionary text egress and a successful voice
-probe. This module's offline tests do not contact Microsoft or Englex.
+The user approved the Ryan sample and English dictionary text egress for current
+and future cards. This module's offline tests do not contact Microsoft or Englex.
 """
 import argparse
 import asyncio
