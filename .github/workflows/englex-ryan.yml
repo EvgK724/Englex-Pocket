@@ -1,0 +1,121 @@
+name: Prepare generated Microsoft Ryan recordings
+
+on:
+  workflow_dispatch:
+    inputs:
+      continuation:
+        description: 'Bounded continuation (0 for a new run, maximum 8)'
+        required: false
+        type: number
+        default: 0
+  push:
+    branches: [main]
+    paths:
+      - 'dist/dictionary.json'
+      # Publishing this approved workflow starts the initial finite queue.
+      # Audio checkpoint pushes do not match these paths or restart generation.
+      - '.github/workflows/englex-ryan.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    # The user approved this Ryan sample and sending current/future dictionary
+    # English text to Microsoft Edge. Original Englex recordings stay untouched.
+    concurrency:
+      group: englex-ryan-recordings
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Every queued run starts from the latest imports and audio checkpoints.
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install the reviewed standard client and offline MP3 decoder
+        shell: bash
+        run: |
+          python -m pip install 'edge-tts==7.2.8'
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install --yes ffmpeg
+          fi
+      - name: Test append-only generation and publication without service calls
+        run: python scripts/test-englex-ryan.py
+      - name: Generate the finite missing Ryan queue and publish checkpoints
+        id: generate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CONTINUATION_COUNT: ${{ inputs.continuation || 0 }}
+        run: >-
+          python scripts/generate-englex-ryan.py --approved-dictionary-egress
+          --publish --deadline-minutes 250 --continuation "$CONTINUATION_COUNT"
+      - name: Read checkpoint and bounded continuation status
+        id: status
+        if: ${{ !cancelled() }}
+        env:
+          CONTINUATION_COUNT: ${{ inputs.continuation || 0 }}
+        run: |
+          python - <<'PY'
+          import importlib.util, json, os
+          from pathlib import Path
+          path = Path('.englex-ryan/status.json')
+          if not path.is_file():
+              raise SystemExit(0)
+          spec = importlib.util.spec_from_file_location('ryan', 'scripts/generate-englex-ryan.py')
+          ryan = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(ryan)
+          status = json.loads(path.read_text())
+          next_run = ryan.next_continuation(status, int(os.environ['CONTINUATION_COUNT']))
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f"deploy={str(status.get('available', 0) > 0).lower()}\n")
+              if next_run is not None:
+                  output.write(f'continuation={next_run}\n')
+          def count(key):
+              value = status.get(key)
+              return value if type(value) is int and value >= 0 else 'unknown'
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write(f"Microsoft Edge / en-GB-RyanNeural (generated): {count('generated')} new, "
+                            f"{count('available')} available, {count('remaining')} remaining.\n\n"
+                            f"Original Englex recordings preserved: {count('originals')}. "
+                            f"Published checkpoints: {count('published_commits')}. "
+                            f"Complete: {status.get('complete') is True}.\n")
+              if status.get('stop_reason') == 'error':
+                  summary.write('\nGeneration stopped on an error; no automatic retry is scheduled.\n')
+          PY
+      - name: Publish the latest successful checkpoint to Pages
+        # GITHUB_TOKEN pushes do not trigger the separate Pages push workflow.
+        # This also deploys partial successful progress after a service failure.
+        if: ${{ !cancelled() && steps.status.outputs.deploy == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run pages.yml --ref main
+      - name: Continue only a productive run stopped by its deadline
+        if: ${{ !cancelled() && steps.status.outputs.continuation != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          NEXT_CONTINUATION: ${{ steps.status.outputs.continuation }}
+        run: gh workflow run englex-ryan.yml --ref main -f continuation="$NEXT_CONTINUATION"
+      - name: Preserve completed recordings and the non-sensitive status report
+        if: ${{ !cancelled() && steps.generate.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: englex-ryan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .englex-ryan/status.json
+            dist/englex-ryan-index.json
+            dist/audio/englex-ryan/*.mp3
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
