@@ -16,6 +16,9 @@ export const REVIEW_SPECS = Object.freeze([
   Object.freeze({name: 'b', text: CUE + PHONES, temperature: 0.3}),
   Object.freeze({name: 'c', text: CUE + PHONES, temperature: 0.5})
 ]);
+export const COMBINED_SPEC = Object.freeze({name: 'd',
+  text: "[Native British English pronunciation, clear neutral English vowels, preserve the reference speaker's natural timbre and vocal pitch, relaxed connected speech] " + PHONES,
+  temperature: 0.2});
 const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
 const run = promisify(execFile);
 const DEFAULT_DIST = fileURLToPath(new URL('../dist/', import.meta.url));
@@ -93,18 +96,19 @@ async function soften({sourceDir, outputDir}) {
   await run('python3', [SOFTEN_SCRIPT, '--source', sourceDir, '--output', outputDir, '--denoise'], {timeout: 60000});
 }
 
-export async function generateEnglishReview({distDir = DEFAULT_DIST, outputDir = DEFAULT_OUTPUT,
+export async function generateEnglishReview({distDir = DEFAULT_DIST, outputDir, review = 'original',
   apiKey = process.env.FISH_API_KEY, engine = process.env.FISH_ENGINE || ENGINE,
   fetchImpl = globalThis.fetch, processAudio = soften,
   sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), now = Date.now} = {}) {
+  if (!['original', 'combined'].includes(review)) throw new Error('Review must be original or combined.');
   if (typeof apiKey !== 'string' || !apiKey.trim()) throw new Error('Set the server-side FISH_API_KEY secret.');
   if (engine !== ENGINE) throw new Error('Only s2.1-pro-free is allowed; paid model fallback is disabled.');
   // Check the live checkout before requests or output writes; never use a stale word/ID mapping.
   await verifyRecover(resolve(distDir));
-  outputDir = resolve(outputDir);
-  const metadata = {version: 1, profile: REVIEW_PROFILE, cardId: RECOVER_ID, word: 'recover',
+  outputDir = resolve(outputDir || (review === 'combined' ? fileURLToPath(new URL('../.english-review-combined/', import.meta.url)) : DEFAULT_OUTPUT));
+  const metadata = {version: 1, profile: review === 'combined' ? 'english-review-v4' : REVIEW_PROFILE, cardId: RECOVER_ID, word: 'recover',
     engine: ENGINE, voiceId: VOICE_ID, processing: 'accepted clean-1', complete: false,
-    variants: REVIEW_SPECS.map(spec => ({...spec, raw: `raw/${spec.name}/${RECOVER_ID}.mp3`,
+    variants: (review === 'combined' ? [COMBINED_SPEC] : REVIEW_SPECS).map(spec => ({...spec, raw: `raw/${spec.name}/${RECOVER_ID}.mp3`,
       processed: `processed/${spec.name}/${RECOVER_ID}.mp3`, ready: false}))};
   const saveMetadata = () => atomicWrite(join(outputDir, 'metadata.json'), JSON.stringify(metadata, null, 2) + '\n');
   await saveMetadata();
@@ -126,8 +130,9 @@ export async function generateEnglishReview({distDir = DEFAULT_DIST, outputDir =
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   try {
-    if (process.argv.length !== 2) throw new Error('This fixed three-recording review accepts no CLI arguments.');
-    const result = await generateEnglishReview();
+    const args = process.argv.slice(2);
+    if (args.length && (args.length !== 1 || args[0] !== '--combined')) throw new Error('Use no arguments or --combined only.');
+    const result = await generateEnglishReview({review: args.length ? 'combined' : 'original'});
     console.log(`English pronunciation review: ${result.variants.length} same-voice recordings prepared for listening.`);
   } catch (error) {
     const secret = process.env.FISH_API_KEY;

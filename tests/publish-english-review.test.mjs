@@ -129,3 +129,66 @@ test('an invalid or missing sample prevents all publication', async t => {
   await assert.rejects(publishEnglishReview({repoDir:f.repoDir, outputDir:f.outputDir}));
   assert.equal(await git(f.remote, 'rev-parse', 'main'), f.latestHead);
 });
+
+test('combined review extends fresh main with D alone and preserves A, B, C and every live asset', async t => {
+  const f = await fixture(t);
+  // All original comparison recordings already exist on the remote.
+  await put(f.writer, samplePath('b'), sample(2));
+  await put(f.writer, samplePath('c'), sample(3));
+  const currentHead = await commit(f.writer, 'Complete the original comparison');
+  await git(f.writer, 'push', '--quiet', 'origin', 'main');
+  const before = await tree(f.remote, currentHead);
+  const outputDir = join(f.root, '.english-review-combined');
+  const combinedPath = `dist/audio/english-review-v4/d/${id}.mp3`;
+  await put(outputDir, `processed/d/${id}.mp3`, sample(31));
+  // Unrelated prepared files must never widen the publication allowlist.
+  await put(outputDir, `processed/a/${id}.mp3`, sample(99));
+  await put(f.repoDir, 'local-staged.txt', 'Unrelated staged work.\n');
+  await git(f.repoDir, 'add', 'local-staged.txt');
+  const localStatus = await git(f.repoDir, 'status', '--porcelain=v1');
+  const localIndex = await readFile(join(f.repoDir, '.git', 'index'));
+
+  const published = await publishEnglishReview({repoDir: f.repoDir, outputDir, review: 'combined'});
+
+  assert.equal(await git(f.remote, 'rev-parse', 'main'), published);
+  assert.equal(await git(f.remote, 'rev-parse', `${published}^`), currentHead);
+  const changed = (await git(f.remote, 'diff-tree', '--no-commit-id', '--name-only', '-r', published)).split('\n');
+  assert.deepEqual(changed, [combinedPath]);
+  const after = await tree(f.remote, published);
+  for (const [path, blob] of before) {
+    assert.equal(after.get(path), blob, `${path} must preserve its exact Git blob and mode`);
+  }
+  assert.ok(variants.every(variant => after.has(samplePath(variant))));
+  const {stdout} = await run('git', ['show', `${published}:${combinedPath}`], {cwd: f.remote, encoding: 'buffer'});
+  assert.deepEqual(stdout, sample(31));
+  assert.equal(await git(f.repoDir, 'rev-parse', 'HEAD'), f.staleHead);
+  assert.equal(await git(f.repoDir, 'status', '--porcelain=v1'), localStatus);
+  assert.deepEqual(await readFile(join(f.repoDir, '.git', 'index')), localIndex);
+  assert.equal((await readdir(outputDir)).some(name => name.startsWith('publish-index-')), false);
+
+  const count = await git(f.remote, 'rev-list', '--count', 'main');
+  assert.equal(await publishEnglishReview({repoDir: f.repoDir, outputDir, review: 'combined'}), published);
+  assert.equal(await git(f.remote, 'rev-list', '--count', 'main'), count,
+    'repeating the same prepared sample creates no empty commit');
+});
+
+test('combined publication requires a valid D sample even if original comparison files are present', async t => {
+  const f = await fixture(t);
+  await assert.rejects(publishEnglishReview({repoDir: f.repoDir, outputDir: f.outputDir, review: 'combined'}), /missing or invalid/);
+  await put(f.outputDir, `processed/d/${id}.mp3`, Buffer.from('not audio'));
+  await assert.rejects(publishEnglishReview({repoDir: f.repoDir, outputDir: f.outputDir, review: 'combined'}), /missing or invalid/);
+  assert.equal(await git(f.remote, 'rev-parse', 'main'), f.latestHead);
+  assert.equal(await git(f.repoDir, 'rev-parse', 'HEAD'), f.staleHead);
+});
+
+test('unknown publication review mode is rejected before accessing git', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'english-review-invalid-mode-'));
+  t.after(() => rm(root, {recursive: true, force: true}));
+  for (const review of ['unknown', '../combined', null]) {
+    await assert.rejects(publishEnglishReview({repoDir: join(root, 'nonexistent-repository'),
+      outputDir: join(root, 'nonexistent-output'), review}), error =>
+      /review/i.test(error.message) && !/git|ENOENT/i.test(error.message),
+    'bad modes must be validated before filesystem or git operations');
+  }
+  assert.deepEqual(await readdir(root), []);
+});

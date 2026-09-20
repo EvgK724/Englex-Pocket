@@ -2,6 +2,13 @@ name: Compare Chonishvili English pronunciation
 
 on:
   workflow_dispatch:
+    inputs:
+      review:
+        description: 'Original A/B/C or combined D sample'
+        required: true
+        default: combined
+        type: choice
+        options: [original, combined]
   push:
     branches: [main]
 
@@ -17,7 +24,8 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' &&
-      startsWith(github.event.head_commit.message, 'Prepare same-voice English review [english-review-v3]'))
+      (startsWith(github.event.head_commit.message, 'Prepare same-voice English review [english-review-v3]') ||
+      startsWith(github.event.head_commit.message, 'Prepare Chonishvili combined review [english-review-v4]')))
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -42,12 +50,27 @@ jobs:
           fi
       - name: Test the bounded generation and publication
         run: node --test tests/english-review.test.mjs tests/publish-english-review.test.mjs
-      - name: Generate three review samples with the same voice
+      - name: Generate selected review samples with the same voice
         env:
           FISH_API_KEY: ${{ secrets.FISH_API_KEY }}
-        run: node scripts/generate-english-review.mjs
+          REVIEW_KIND: ${{ github.event_name == 'workflow_dispatch' && inputs.review || (startsWith(github.event.head_commit.message, 'Prepare Chonishvili combined review [english-review-v4]') && 'combined' || 'original') }}
+        shell: bash
+        run: |
+          case "$REVIEW_KIND" in
+            original) node scripts/generate-english-review.mjs ;;
+            combined) node scripts/generate-english-review.mjs --combined ;;
+            *) exit 1 ;;
+          esac
       - name: Publish only review audio on the latest main
-        run: node scripts/publish-english-review.mjs
+        env:
+          REVIEW_KIND: ${{ github.event_name == 'workflow_dispatch' && inputs.review || (startsWith(github.event.head_commit.message, 'Prepare Chonishvili combined review [english-review-v4]') && 'combined' || 'original') }}
+        shell: bash
+        run: |
+          case "$REVIEW_KIND" in
+            original) node scripts/publish-english-review.mjs ;;
+            combined) node scripts/publish-english-review.mjs --combined ;;
+            *) exit 1 ;;
+          esac
       - name: Publish samples to Pages
         env:
           GH_TOKEN: ${{ github.token }}
@@ -58,7 +81,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: same-voice-english-review-${{ github.run_id }}-${{ github.run_attempt }}
-          path: .english-review/
+          path: |
+            .english-review/
+            .english-review-combined/
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 14

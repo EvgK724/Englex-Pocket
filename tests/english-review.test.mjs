@@ -31,6 +31,15 @@ async function fixture(t) {
 async function snapshot(dir) {
   return Promise.all((await readdir(dir)).sort().map(async name => [name, await readFile(join(dir, name))]));
 }
+async function recursiveSnapshot(dir, prefix = '') {
+  const result = [];
+  for (const entry of (await readdir(dir, {withFileTypes: true})).sort((a, b) => a.name.localeCompare(b.name))) {
+    const path = join(prefix, entry.name);
+    if (entry.isDirectory()) result.push(...await recursiveSnapshot(join(dir, entry.name), path));
+    else result.push([path, await readFile(join(dir, entry.name))]);
+  }
+  return result;
+}
 
 test('three new same-voice specimens use exact free model, cues, phones and temperatures without editing app data', async t => {
   const options = await fixture(t);
@@ -76,6 +85,76 @@ test('three new same-voice specimens use exact free model, cues, phones and temp
   assert.deepEqual(JSON.parse(stored), metadata);
   assert.deepEqual(await snapshot(options.distDir), before);
   assert.ok(Object.isFrozen(REVIEW_SPECS) && REVIEW_SPECS.every(Object.isFrozen));
+});
+
+test('combined review makes one lower-variance same-voice phoneme specimen and preserves the originals', async t => {
+  const options = await fixture(t);
+  await generateEnglishReview(options);
+  const previousReview = await recursiveSnapshot(options.outputDir);
+  const appBefore = await snapshot(options.distDir);
+  const outputDir = join(options.outputDir, '..', '.english-review-combined');
+  const calls = [];
+  const processingCalls = [];
+  const metadata = await generateEnglishReview({...options, review: 'combined', outputDir,
+    fetchImpl: async (url, init) => {
+      assert.equal(url, ENDPOINT);
+      assert.equal(init.method, 'POST');
+      assert.equal(init.headers.model, ENGINE);
+      assert.equal(init.headers.model, 's2.1-pro-free');
+      assert.equal(init.redirect, 'error');
+      const body = JSON.parse(init.body);
+      assert.equal(body.reference_id, VOICE_ID);
+      assert.equal(body.reference_id, '089f2e853e064d6fb15f5b5882914b52');
+      assert.equal(body.references, undefined, 'the established voice model must remain the reference');
+      assert.equal(body.temperature, 0.2);
+      assert.ok(body.text.includes('<|phoneme_start|>R IH0 K AH1 V AH0<|phoneme_end|>.'),
+        'keep the pronunciation the user accepted in B');
+      assert.match(body.text, /British English/);
+      assert.equal(body.format, 'mp3');
+      assert.equal(body.mp3_bitrate, 128);
+      calls.push(body);
+      return response();
+    },
+    processAudio: async paths => {
+      processingCalls.push(paths);
+      await options.processAudio(paths);
+    }
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(processingCalls.length, 1);
+  assert.equal(processingCalls[0].sourceDir, join(outputDir, 'raw', 'd'));
+  assert.equal(processingCalls[0].outputDir, join(outputDir, 'processed', 'd'));
+  assert.equal(metadata.complete, true);
+  assert.equal(metadata.processing, 'accepted clean-1');
+  assert.deepEqual(metadata.variants.map(item => item.name), ['d']);
+  const [variant] = metadata.variants;
+  assert.equal(variant.ready, true);
+  assert.equal(variant.raw, `raw/d/${RECOVER_ID}.mp3`);
+  assert.equal(variant.processed, `processed/d/${RECOVER_ID}.mp3`);
+  assert.deepEqual(await readFile(join(outputDir, variant.raw)), mp3);
+  assert.deepEqual(await readFile(join(outputDir, variant.processed)), mp3);
+  const stored = await readFile(join(outputDir, 'metadata.json'), 'utf8');
+  assert.equal(stored.includes(options.apiKey), false);
+  assert.deepEqual(JSON.parse(stored), metadata);
+  assert.deepEqual(await recursiveSnapshot(options.outputDir), previousReview,
+    'A, B, C and their review metadata are kept for comparison');
+  assert.deepEqual(await snapshot(options.distDir), appBefore,
+    'dictionary, manifests and active recordings remain unchanged');
+});
+
+test('an unknown review mode fails before requests, processing or output writes', async t => {
+  for (const review of ['unknown', '../combined', null]) {
+    const options = await fixture(t);
+    let calls = 0;
+    let processingCalls = 0;
+    await assert.rejects(generateEnglishReview({...options, review,
+      fetchImpl: async () => { calls++; return response(); },
+      processAudio: async () => { processingCalls++; }
+    }), /review/i);
+    assert.equal(calls, 0);
+    assert.equal(processingCalls, 0);
+    await assert.rejects(readFile(join(options.outputDir, 'metadata.json')), {code: 'ENOENT'});
+  }
 });
 
 test('checks current recover identity before any API call or output write', async t => {
