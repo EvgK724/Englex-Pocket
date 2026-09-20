@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#111113">
-  <title>Чонишвили · английское произношение — Englex Pocket</title>
+  <title>Чонишвили · новая проба D — Englex Pocket</title>
   <style>
     :root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#111113;color:#e5e7eb;font-size:18px;line-height:1.5}
     *{box-sizing:border-box}body{margin:0}main{max-width:640px;margin:auto;padding:32px max(20px,env(safe-area-inset-right)) 40px max(20px,env(safe-area-inset-left))}
@@ -13,35 +13,44 @@
     .word{font-size:40px;font-weight:650;letter-spacing:-.02em;margin:24px 0 4px}.ipa{color:#b7bac2;margin:0 0 24px}p{margin:12px 0}.intro{color:#b7bac2}
     section{background:#1c1c1e;border:1px solid #37373d;border-radius:16px;padding:20px;margin:16px 0}h2{font-size:21px;margin:0 0 12px}audio{display:block;width:100%;min-height:54px}
     .status{color:#ff9d42;font-size:16px}.note{margin-top:24px;color:#b7bac2;font-size:16px}
+    #combined{border-color:#62aeff}button{font:inherit;font-weight:650;border:0;border-radius:12px;min-height:52px;width:100%;padding:12px;background:#62aeff;color:#111113;cursor:pointer;margin-bottom:16px}button:focus-visible{outline:3px solid #e5e7eb;outline-offset:4px}summary{cursor:pointer;min-height:44px;padding:12px 0;color:#62aeff}
   </style>
 </head>
 <body>
 <main>
   <a class="back" href="./">← К карточкам Englex Pocket</a>
   <h1>Чонишвили · английское произношение</h1>
-  <p class="intro">В трёх пробах выбран тот же голос. Сравните произношение и сохранение тембра.</p>
+  <p class="intro">Ваш ориентир: произношение из B, тембр из A. Проверьте, удалось ли сохранить оба качества в новой пробе D.</p>
   <p class="word" lang="en">recover</p>
   <p class="ipa">Британское произношение: /rɪˈkʌvə/</p>
+  <section id="combined" aria-labelledby="sample-d">
+    <h2 id="sample-d">Новая проба D</h2>
+    <button id="play-combined" type="button">▶ Прослушать новую пробу D</button>
+    <audio id="audio-combined" controls preload="metadata" aria-label="Прослушать вариант D"><source src="./audio/english-review-v4/d/8c7b57756ded59cf6ce7.mp3" type="audio/mpeg"></audio>
+    <p class="status" role="status" hidden>Запись не загрузилась. Обновите страницу и повторите.</p>
+  </section>
+  <p>Стали ли одновременно подходящими произношение и тембр? Напишите в чате, что слышите в D.</p>
+  <details>
+  <summary>Сравнить с A и B</summary>
   <section aria-labelledby="sample-a">
-    <h2 id="sample-a">Вариант A</h2>
+    <h2 id="sample-a">A · понравившийся тембр</h2>
     <audio controls preload="metadata" aria-label="Прослушать вариант A"><source src="./audio/english-review-v3/a/8c7b57756ded59cf6ce7.mp3" type="audio/mpeg"></audio>
     <p class="status" role="status" hidden>Запись не загрузилась. Обновите страницу и повторите.</p>
   </section>
   <section aria-labelledby="sample-b">
-    <h2 id="sample-b">Вариант B</h2>
+    <h2 id="sample-b">B · правильное произношение</h2>
     <audio controls preload="metadata" aria-label="Прослушать вариант B"><source src="./audio/english-review-v3/b/8c7b57756ded59cf6ce7.mp3" type="audio/mpeg"></audio>
     <p class="status" role="status" hidden>Запись не загрузилась. Обновите страницу и повторите.</p>
   </section>
-  <section aria-labelledby="sample-c">
-    <h2 id="sample-c">Вариант C</h2>
-    <audio controls preload="metadata" aria-label="Прослушать вариант C"><source src="./audio/english-review-v3/c/8c7b57756ded59cf6ce7.mp3" type="audio/mpeg"></audio>
-    <p class="status" role="status" hidden>Запись не загрузилась. Обновите страницу и повторите.</p>
-  </section>
-  <p>Напишите в чате: <strong>A, B или C</strong> — либо что ни один вариант не подходит.</p>
+  </details>
   <p class="note">Это пробы. Текущая озвучка карточек сохранена; новый вариант ещё не распространён на весь словарь.</p>
 </main>
 <script>
   const players=[...document.querySelectorAll('audio')];
+  const combined=document.getElementById('audio-combined'),button=document.getElementById('play-combined');
+  button.addEventListener('click',()=>{if(!combined.paused)combined.pause();else combined.play().catch(()=>{combined.closest('section').querySelector('.status').hidden=false;});});
+  const refreshButton=()=>{button.textContent=combined.paused?'▶ Прослушать новую пробу D':'Ⅱ Пауза';};
+  for(const event of ['play','pause','ended'])combined.addEventListener(event,refreshButton);
   for(const player of players){
     player.addEventListener('play',()=>{for(const other of players)if(other!==player)other.pause();});
     const showError=()=>{player.closest('section').querySelector('.status').hidden=false;};
