@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111113">
+  <title>Чонишвили · английское произношение — Englex Pocket</title>
+  <style>
+    :root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#111113;color:#e5e7eb;font-size:18px;line-height:1.5}
+    *{box-sizing:border-box}body{margin:0}main{max-width:640px;margin:auto;padding:32px max(20px,env(safe-area-inset-right)) 40px max(20px,env(safe-area-inset-left))}
+    a{color:#62aeff;text-underline-offset:4px}a:focus-visible,audio:focus-visible{outline:3px solid #62aeff;outline-offset:5px}
+    .back{display:inline-flex;align-items:center;min-height:44px;margin-bottom:24px}h1{font-size:clamp(28px,6vw,36px);line-height:1.2;letter-spacing:-.025em;margin:0 0 16px}
+    .word{font-size:40px;font-weight:650;letter-spacing:-.02em;margin:24px 0 4px}.ipa{color:#b7bac2;margin:0 0 24px}p{margin:12px 0}.intro{color:#b7bac2}
+    section{background:#1c1c1e;border:1px solid #37373d;border-radius:16px;padding:20px;margin:16px 0}h2{font-size:21px;margin:0 0 12px}audio{display:block;width:100%;min-height:54px}
+    .status{color:#ff9d42;font-size:16px}.note{margin-top:24px;color:#b7bac2;font-size:16px}
+  </style>
+</head>
+<body>
+<main>
+  <a class="back" href="./">← К карточкам Englex Pocket</a>
+  <h1>Чонишвили · английское произношение</h1>
+  <p class="intro">В трёх пробах выбран тот же голос. Сравните произношение и сохранение тембра.</p>
+  <p class="word" lang="en">recover</p>
+  <p class="ipa">Британское произношение: /rɪˈkʌvə/</p>
+  <section aria-labelledby="sample-a">
+    <h2 id="sample-a">Вариант A</h2>
+    <audio controls preload="metadata" aria-label="Прослушать вариант A"><source src="./audio/english-review-v3/a/8c7b57756ded59cf6ce7.mp3" type="audio/mpeg"></audio>
+    <p class="status" role="status" hidden>Запись не загрузилась. Обновите страницу и повторите.</p>
+  </section>
+  <section aria-labelledby="sample-b">
+    <h2 id="sample-b">Вариант B</h2>
+    <audio controls preload="metadata" aria-label="Прослушать вариант B"><source src="./audio/english-review-v3/b/8c7b57756ded59cf6ce7.mp3" type="audio/mpeg"></audio>
+    <p class="status" role="status" hidden>Запись не загрузилась. Обновите страницу и повторите.</p>
+  </section>
+  <section aria-labelledby="sample-c">
+    <h2 id="sample-c">Вариант C</h2>
+    <audio controls preload="metadata" aria-label="Прослушать вариант C"><source src="./audio/english-review-v3/c/8c7b57756ded59cf6ce7.mp3" type="audio/mpeg"></audio>
+    <p class="status" role="status" hidden>Запись не загрузилась. Обновите страницу и повторите.</p>
+  </section>
+  <p>Напишите в чате: <strong>A, B или C</strong> — либо что ни один вариант не подходит.</p>
+  <p class="note">Это пробы. Текущая озвучка карточек сохранена; новый вариант ещё не распространён на весь словарь.</p>
+</main>
+<script>
+  const players=[...document.querySelectorAll('audio')];
+  for(const player of players){
+    player.addEventListener('play',()=>{for(const other of players)if(other!==player)other.pause();});
+    const showError=()=>{player.closest('section').querySelector('.status').hidden=false;};
+    player.addEventListener('error',showError);
+    player.querySelector('source').addEventListener('error',showError);
+  }
+</script>
+</body>
+</html>
