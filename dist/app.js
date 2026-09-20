@@ -1,7 +1,7 @@
 import {normalizeText, speechText, selectCards, sanitizeProgress, formatDate} from './core.mjs';
 import {RecordedSpeech} from './recorded-speech.mjs';
 import {assetUrl} from './paths.mjs';
-import {VOICE_OPTIONS, ENGLEX_AI_VOICE_URI, CHONISHVILI_A_VOICE_URI, SOFT_VOICE_URI, CHONISHVILI_A_MANIFEST, ENGLEX_AI_MANIFEST, migrateVoicePreference, validateEnglexAIManifest, validateChonishviliAManifest, voiceCardIds, recordingForVoice} from './voice-options.mjs?v=three-voices-1';
+import {VOICE_OPTIONS, ENGLEX_AI_VOICE_URI, CHONISHVILI_A_VOICE_URI, SOFT_VOICE_URI, SOFT_VOICE_MANIFEST, CHONISHVILI_A_MANIFEST, ENGLEX_AI_MANIFEST, migrateVoicePreference, validateEnglexAIManifest, validateChonishviliAManifest, validateSoftVoiceManifest, voiceCardIds, recordingForVoice} from './voice-options.mjs?v=three-voices-2';
 
 const $ = id => document.getElementById(id);
 const icons = {
@@ -285,7 +285,8 @@ function installCollection(data,audioIndex,initial){
   }
   if(initial)loadProgress();
   // A temporary audio-index failure keeps recordings already known to the app.
-  if(Array.isArray(audioIndex?.cards)){audioIds=new Set(audioIndex.cards.filter(id=>byId.has(id)));voiceLoadStatus.set(SOFT_VOICE_URI,'ready');}
+  const nextSoftIds=validateSoftVoiceManifest(audioIndex,new Set(byId.keys()));
+  if(nextSoftIds&&[...audioIds].every(id=>nextSoftIds.has(id))){audioIds=nextSoftIds;voiceLoadStatus.set(SOFT_VOICE_URI,'ready');}
   else if(!audioIds.size)voiceLoadStatus.set(SOFT_VOICE_URI,'unavailable');
   refreshVoices();updateAudioButtons();
   $('source-info').textContent=`Все ${metadata.count.toLocaleString('ru-RU')} записи из вашего Englex за ${formatDate(metadata.from)}–${formatDate(metadata.through)}. Переводы сохранены из исходного словаря; транскрипция показана там, где она была в экспорте.`;
@@ -304,6 +305,7 @@ let voiceManifestRequest=null;
 function refreshVoiceManifests(){
   if(voiceManifestRequest)return voiceManifestRequest;
   const manifests=[
+    {uri:SOFT_VOICE_URI,path:SOFT_VOICE_MANIFEST,validate:validateSoftVoiceManifest,install:next=>{audioIds=next;}},
     {uri:CHONISHVILI_A_VOICE_URI,path:CHONISHVILI_A_MANIFEST,validate:validateChonishviliAManifest,install:next=>{chonishviliAIds=next;}},
     {uri:ENGLEX_AI_VOICE_URI,path:ENGLEX_AI_MANIFEST,validate:validateEnglexAIManifest,install:next=>{englexRecordings=next;}}
   ];
@@ -347,4 +349,5 @@ window.addEventListener('online',refreshWhenActive);
 setInterval(refreshWhenActive,5*60_000);
 setInterval(()=>{if(metadata&&document.visibilityState!=='hidden'&&navigator.onLine!==false)void refreshVoiceManifests();},COLLECTION_REFRESH_DELAY);
 init();
+
 

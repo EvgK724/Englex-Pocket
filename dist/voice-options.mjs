@@ -9,6 +9,7 @@ export const VOICE_OPTIONS = Object.freeze([
 ]);
 export const CHONISHVILI_A_MANIFEST = 'fish-chonishvili-a-v1-index.json';
 export const ENGLEX_AI_MANIFEST = 'englex-ai-index.json';
+export const SOFT_VOICE_MANIFEST = 'audio-index.json';
 
 export function migrateVoicePreference(raw) {
   const uri=raw?.voiceURI;
@@ -32,6 +33,14 @@ export function validateEnglexAIManifest(raw,validIds) {
 export function validateChonishviliAManifest(raw,validIds) {
   if(!raw||raw.version!==1||raw.voiceId!=='089f2e853e064d6fb15f5b5882914b52'||
       raw.engine!=='s2.1-pro-free'||raw.profile!=='a-v1'||!Array.isArray(raw.cards)||
+      raw.cards.some(id=>typeof id!=='string'||!/^[a-f0-9]{20}$/.test(id)||!validIds.has(id))||
+      new Set(raw.cards).size!==raw.cards.length)return null;
+  return new Set(raw.cards);
+}
+
+export function validateSoftVoiceManifest(raw,validIds) {
+  if(!raw||raw.version!==1||raw.provider!=='AI Voice Generator'||raw.voice!=='delicate'||
+      !Array.isArray(raw.cards)||raw.count!==raw.cards.length||
       raw.cards.some(id=>typeof id!=='string'||!/^[a-f0-9]{20}$/.test(id)||!validIds.has(id))||
       new Set(raw.cards).size!==raw.cards.length)return null;
   return new Set(raw.cards);
