@@ -10,17 +10,19 @@ on:
         default: 0
   push:
     branches: [main]
-    paths: ['dist/dictionary.json']
+    paths:
+      - 'dist/dictionary.json'
+      # Publishing this approved workflow starts the initial finite queue.
+      # Audio checkpoint pushes do not match these paths or restart generation.
+      - '.github/workflows/englex-ryan.yml'
 
 permissions:
   contents: read
 
 jobs:
   prepare:
-    # REVIEW GATE: leave disabled until explicit approval for sending dictionary
-    # text to Microsoft Edge. A neutral sample worked; matching Englex's backend
-    # voice remains unconfirmed. No original Englex file will be synthesized over.
-    if: ${{ false }}
+    # The user approved this Ryan sample and sending current/future dictionary
+    # English text to Microsoft Edge. Original Englex recordings stay untouched.
     concurrency:
       group: englex-ryan-recordings
       cancel-in-progress: false
