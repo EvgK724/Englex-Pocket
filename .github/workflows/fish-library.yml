@@ -4,21 +4,27 @@ on:
   workflow_dispatch:
     inputs:
       voice:
-        description: 'Accepted voice or experimental English pronunciation'
+        description: 'Chonishvili variant A or a preserved legacy profile'
         required: true
-        default: english
+        default: a
         type: choice
         options:
+          - a
           - english
           - accepted
       mode:
         description: 'Trial pronunciation samples or the finite current dictionary'
         required: true
-        default: trial
+        default: full
         type: choice
         options:
           - trial
           - full
+      continuation:
+        description: 'Bounded A continuation number (0 for a new run, maximum 8)'
+        required: false
+        type: number
+        default: 0
   push:
     branches: [main]
 
@@ -30,12 +36,28 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      needed: ${{ steps.plan.outputs.needed }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Select requested profiles and detect dictionary additions
+        id: plan
+        run: node scripts/fish-library-plan.mjs
   prepare:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' &&
-      (startsWith(github.event.head_commit.message, 'Run English accent trial [fish-en-gb-v1]') ||
-      startsWith(github.event.head_commit.message, 'Run accepted Fish dictionary [fish-all-v1]')))
+    needs: plan
+    if: needs.plan.outputs.needed == 'true'
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     runs-on: ubuntu-latest
     timeout-minutes: 330
     permissions:
@@ -44,6 +66,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          # A queued run must include newer imports and previous checkpoints.
+          ref: main
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
@@ -68,9 +92,8 @@ jobs:
         env:
           FISH_API_KEY: ${{ secrets.FISH_API_KEY }}
           GH_TOKEN: ${{ github.token }}
-          # Each explicitly recognized push marker has one fixed voice and mode.
-          FISH_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || (startsWith(github.event.head_commit.message, 'Run accepted Fish dictionary [fish-all-v1]') && 'full' || 'trial') }}
-          FISH_VOICE: ${{ github.event_name == 'workflow_dispatch' && inputs.voice || (startsWith(github.event.head_commit.message, 'Run accepted Fish dictionary [fish-all-v1]') && 'accepted' || 'english') }}
+          FISH_MODE: ${{ matrix.mode }}
+          FISH_VOICE: ${{ matrix.voice }}
         shell: bash
         run: |
           case "$FISH_MODE" in
@@ -78,7 +101,7 @@ jobs:
             *) echo 'Unsupported generation mode.' >&2; exit 1 ;;
           esac
           case "$FISH_VOICE" in
-            accepted|english) ;;
+            accepted|english|a) ;;
             *) echo 'Unsupported voice profile.' >&2; exit 1 ;;
           esac
           node scripts/generate-fish-library.mjs --mode "$FISH_MODE" --voice "$FISH_VOICE" --publish --deadline-minutes 250
@@ -110,11 +133,26 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: gh workflow run pages.yml --ref main
+      - name: Check whether the finite A queue can continue after its deadline
+        id: continuation
+        if: ${{ !cancelled() }}
+        env:
+          CONTINUATION_COUNT: ${{ matrix.continuation }}
+        run: node scripts/fish-library-plan.mjs --continuation "$CONTINUATION_COUNT"
+      - name: Resume remaining A recordings on latest main
+        # Only a deadline with newly published progress can dispatch another run.
+        # API, quota, authentication and publication errors never auto-retry.
+        if: ${{ !cancelled() && steps.continuation.outputs.next != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          NEXT_CONTINUATION: ${{ steps.continuation.outputs.next }}
+        run: gh workflow run fish-library.yml --ref main -f voice=a -f mode=full -f continuation="$NEXT_CONTINUATION"
       - name: Preserve original and processed recordings for review
         if: ${{ !cancelled() && steps.generate.outcome != 'skipped' }}
         uses: actions/upload-artifact@v4
         with:
-          name: fish-chonishvili-library-${{ github.run_id }}-${{ github.run_attempt }}
+          name: fish-chonishvili-library-${{ matrix.voice }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             .fish-library/raw/**/*.mp3
             .fish-library/queue.json
@@ -123,6 +161,8 @@ jobs:
             dist/fish-chonishvili-index.json
             dist/audio/fish-chonishvili-en-gb-v1/*.mp3
             dist/fish-chonishvili-en-gb-v1-index.json
+            dist/audio/fish-chonishvili-a-v1/*.mp3
+            dist/fish-chonishvili-a-v1-index.json
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 14

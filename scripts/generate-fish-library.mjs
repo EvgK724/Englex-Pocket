@@ -3,7 +3,7 @@ import {join, resolve} from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
-import {randomUUID} from 'node:crypto';
+import {createHash, randomUUID} from 'node:crypto';
 import {speechText} from '../dist/core.mjs';
 import {atomicWrite, isPlausibleMp3, ENGINE, VOICE_ID, ENDPOINT} from './generate-fish-audio.mjs';
 
@@ -11,6 +11,12 @@ export const PROFILE = 'en-gb-v1';
 export const PREFIX = '[British English accent, non-rhotic pronunciation] ';
 export const AUDIO_DIRECTORY = `fish-chonishvili-${PROFILE}`;
 export const INDEX_FILENAME = `${AUDIO_DIRECTORY}-index.json`;
+export const A_PROFILE = 'a-v1';
+export const A_PREFIX = '[Native British English pronunciation, clear neutral English vowels] ';
+export const A_RECOVER_ID = '8c7b57756ded59cf6ce7';
+export const A_RECOVER_SOURCE = `audio/english-review-v3/a/${A_RECOVER_ID}.mp3`;
+// Pin the recording the user actually approved, not a fresh synthesis of recover.
+export const A_RECOVER_BLOB_SHA = '9ea61eeb3f657d3c77568cf4b0287806b75097dd';
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const ID = /^[a-f0-9]{20}$/;
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -20,7 +26,9 @@ const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, millise
 export function voiceConfiguration(voice = 'english') {
   if (voice === 'english') return {voice, profile: PROFILE, prefix: PREFIX, audioDirectory: AUDIO_DIRECTORY, indexFilename: INDEX_FILENAME, manifestProfile: PROFILE};
   if (voice === 'accepted') return {voice, profile: 'accepted-clean-v1', prefix: '', audioDirectory: 'fish-chonishvili', indexFilename: 'fish-chonishvili-index.json', manifestProfile: undefined};
-  throw new Error('Voice must be accepted or english.');
+  if (voice === 'a') return {voice, profile: A_PROFILE, prefix: A_PREFIX, temperature: 0.3,
+    audioDirectory: 'fish-chonishvili-a-v1', indexFilename: 'fish-chonishvili-a-v1-index.json', manifestProfile: A_PROFILE};
+  throw new Error('Voice must be accepted, english or a.');
 }
 
 const manifestFor = (config, cards) => ({version: 1, voiceId: VOICE_ID, engine: ENGINE,
@@ -39,18 +47,35 @@ export function parseLibraryArgs(args) {
       if (!['trial', 'full'].includes(options.mode)) throw new Error('Mode must be trial or full.');
     } else if (name === '--voice') {
       options.voice = args[++i];
-      if (!['accepted', 'english'].includes(options.voice)) throw new Error('Voice must be accepted or english.');
+      if (!['accepted', 'english', 'a'].includes(options.voice)) throw new Error('Voice must be accepted, english or a.');
     } else if (name === '--deadline-minutes') {
       const value = args[++i];
       if (!/^\d+$/.test(value || '') || Number(value) < 1 || Number(value) > 250) throw new Error('Deadline must be 1..250 minutes.');
       options.deadlineMinutes = Number(value);
-    } else throw new Error('Use --mode trial|full, --voice accepted|english, --publish and --deadline-minutes 1..250 only.');
+    } else throw new Error('Use --mode trial|full, --voice accepted|english|a, --publish and --deadline-minutes 1..250 only.');
   }
   return options;
 }
 
 async function optionalRead(path) {
   try { return await readFile(path); } catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+}
+
+export async function seedApprovedA(distDir, cards) {
+  const recover = cards.find(card => card.id === A_RECOVER_ID);
+  if (!recover) return 0;
+  if (speechText(recover.word).trim().toLowerCase() !== 'recover') throw new Error('Approved A recording does not match the current recover card.');
+  const source = await readFile(join(distDir, A_RECOVER_SOURCE));
+  const blobSha = createHash('sha1').update(`blob ${source.length}\0`).update(source).digest('hex');
+  if (!isPlausibleMp3(source) || blobSha !== A_RECOVER_BLOB_SHA) throw new Error('Approved A sample changed or is invalid; generation stopped.');
+  const target = join(distDir, 'audio', voiceConfiguration('a').audioDirectory, `${A_RECOVER_ID}.mp3`);
+  const existing = await optionalRead(target);
+  if (existing) {
+    if (!existing.equals(source)) throw new Error('Existing A recover recording differs from the approved sample; it was not overwritten.');
+    return 0;
+  }
+  await atomicWrite(target, source);
+  return 1;
 }
 
 export function validateDictionary(raw) {
@@ -92,14 +117,15 @@ export function retryDelay(response, attempt, now = Date.now()) {
   return Math.max(1000 * 2 ** attempt, instructed);
 }
 
-async function fetchRecording(card, {apiKey, fetchImpl, delay, now, deadline, prefix}) {
+async function fetchRecording(card, {apiKey, fetchImpl, delay, now, deadline, prefix, temperature}) {
   for (let attempt = 0; attempt < 3; attempt++) {
     let response;
     try {
       response = await fetchImpl(ENDPOINT, {
         method: 'POST', redirect: 'error', signal: AbortSignal.timeout(60000),
         headers: {'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', model: ENGINE},
-        body: JSON.stringify({text: prefix + speechText(card.word), reference_id: VOICE_ID, format: 'mp3', mp3_bitrate: 128, latency: 'normal'})
+        body: JSON.stringify({text: prefix + speechText(card.word), ...(temperature === undefined ? {} : {temperature}),
+          reference_id: VOICE_ID, format: 'mp3', mp3_bitrate: 128, latency: 'normal'})
       });
     } catch { throw new Error('Fish request failed or timed out; no paid fallback was attempted.'); }
     if ([429, 503].includes(response.status) && attempt < 2) {
@@ -154,7 +180,9 @@ export async function publishCheckpoint({repoDir = ROOT, distDir, workDir, ids, 
       const parent = await git(['rev-parse', 'origin/main']);
       const cards = validateDictionary(JSON.parse(await git(['show', `${parent}:dist/dictionary.json`])));
       const validIds = new Set(cards.map(card => card.id));
-      const current = validateIndex(JSON.parse(await git(['show', `${parent}:dist/${config.indexFilename}`])), validIds, config);
+      const manifestPath = `dist/${config.indexFilename}`;
+      const hasManifest = await git(['ls-tree', '--name-only', parent, '--', manifestPath]);
+      const current = hasManifest ? validateIndex(JSON.parse(await git(['show', `${parent}:${manifestPath}`])), validIds, config) : [];
       const additions = ids.filter(id => validIds.has(id) && !current.includes(id));
       if (!additions.length) return null;
       await rm(indexFile, {force: true});
@@ -163,7 +191,12 @@ export async function publishCheckpoint({repoDir = ROOT, distDir, workDir, ids, 
         const file = join(distDir, 'audio', config.audioDirectory, `${id}.mp3`);
         if (!isPlausibleMp3(await readFile(file))) throw new Error('Invalid local checkpoint audio.');
         const blob = await git(['hash-object', '-w', file]);
-        await git(['update-index', '--add', '--cacheinfo', `100644,${blob},dist/audio/${config.audioDirectory}/${id}.mp3`]);
+        const path = `dist/audio/${config.audioDirectory}/${id}.mp3`;
+        if (await git(['ls-tree', '--name-only', parent, '--', path])) {
+          const existingBlob = await git(['rev-parse', `${parent}:${path}`]);
+          if (existingBlob !== blob) throw new Error('Existing remote audio differs; it was not overwritten.');
+        }
+        await git(['update-index', '--add', '--cacheinfo', `100644,${blob},${path}`]);
       }
       const combined = new Set([...current, ...additions]);
       const manifest = manifestFor(config, cards.filter(card => combined.has(card.id)).map(card => card.id));
@@ -204,6 +237,7 @@ export async function generateFishLibrary({distDir = join(ROOT, 'dist'), workDir
   const validIds = new Set(cards.map(card => card.id));
   const oldIndex = await optionalRead(join(distDir, config.indexFilename));
   if (oldIndex) validateIndex(JSON.parse(oldIndex.toString()), validIds, config);
+  const seeded = voice === 'a' ? await seedApprovedA(distDir, cards) : 0;
   const audioDir = join(distDir, 'audio', config.audioDirectory);
   const available = new Set();
   for (const card of cards) {
@@ -214,7 +248,7 @@ export async function generateFishLibrary({distDir = join(ROOT, 'dist'), workDir
   const pending = selected.filter(card => !available.has(card.id));
   const rawDir = join(workDir, 'raw', voice);
   const deadline = now() + deadlineMinutes * 60000;
-  const status = {profile: config.profile, voice, mode, snapshotCount: selected.length, generated: 0, available: available.size,
+  const status = {profile: config.profile, voice, mode, snapshotCount: selected.length, generated: 0, seeded, available: available.size,
     remaining: pending.length, publishedCommits: 0, publishedSha: null, complete: pending.length === 0, stopReason: null};
   const writeStatus = () => atomicWrite(join(workDir, 'status.json'), JSON.stringify(status, null, 2) + '\n');
   const writeIndex = () => atomicWrite(join(distDir, config.indexFilename), JSON.stringify(
@@ -230,6 +264,7 @@ export async function generateFishLibrary({distDir = join(ROOT, 'dist'), workDir
   };
   await mkdir(rawDir, {recursive: true});
   await atomicWrite(join(workDir, 'queue.json'), JSON.stringify({profile: config.profile, voice, mode, cards: selected.map(card => ({id: card.id, text: speechText(card.word)}))}, null, 2) + '\n');
+  if (seeded) await writeIndex();
   await writeStatus();
   try {
     // A restored artifact may contain completed files whose previous push failed.
@@ -249,7 +284,7 @@ export async function generateFishLibrary({distDir = join(ROOT, 'dist'), workDir
           const card = batch[cursor++];
           try {
             const saved = await optionalRead(join(rawDir, `${card.id}.mp3`));
-            const bytes = saved && isPlausibleMp3(saved) ? saved : await fetchRecording(card, {apiKey: apiKey.trim(), fetchImpl, delay, now, deadline, prefix: config.prefix});
+            const bytes = saved && isPlausibleMp3(saved) ? saved : await fetchRecording(card, {apiKey: apiKey.trim(), fetchImpl, delay, now, deadline, prefix: config.prefix, temperature: config.temperature});
             await atomicWrite(join(rawDir, `${card.id}.mp3`), bytes);
             await copyFile(join(rawDir, `${card.id}.mp3`), join(sourceDir, `${card.id}.mp3`));
             ready.push(card);

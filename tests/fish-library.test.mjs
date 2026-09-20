@@ -6,7 +6,8 @@ import {join} from 'node:path';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {ENGINE, VOICE_ID, ENDPOINT} from '../scripts/generate-fish-audio.mjs';
-import {AUDIO_DIRECTORY, INDEX_FILENAME, PREFIX, PROFILE, generateFishLibrary, parseLibraryArgs, publishCheckpoint, retryDelay, selectTrialCards, voiceConfiguration} from '../scripts/generate-fish-library.mjs';
+import {AUDIO_DIRECTORY, INDEX_FILENAME, PREFIX, PROFILE, A_PREFIX, A_PROFILE, A_RECOVER_ID, A_RECOVER_SOURCE, generateFishLibrary, parseLibraryArgs, publishCheckpoint, retryDelay, seedApprovedA, selectTrialCards, voiceConfiguration} from '../scripts/generate-fish-library.mjs';
+import {libraryJobs, nextContinuation} from '../scripts/fish-library-plan.mjs';
 
 const run = promisify(execFile);
 const mp3 = Buffer.alloc(417);
@@ -31,9 +32,104 @@ async function fixture(t, count = 10) {
 test('CLI is default-trial, finite and cannot choose an engine or arbitrary command', () => {
   assert.deepEqual(parseLibraryArgs([]), {mode: 'trial', voice: 'english', publish: false, deadlineMinutes: 250});
   assert.deepEqual(parseLibraryArgs(['--mode', 'full', '--voice', 'accepted', '--publish', '--deadline-minutes', '20']), {mode: 'full', voice: 'accepted', publish: true, deadlineMinutes: 20});
+  assert.deepEqual(parseLibraryArgs(['--voice', 'a', '--mode', 'full']), {mode: 'full', voice: 'a', publish: false, deadlineMinutes: 250});
   for (const args of [['--mode', 'everything'], ['--voice'], ['--voice', 'other'], ['--deadline-minutes', '251'], ['--deadline-minutes', '0'], ['--engine', 's2.1-pro'], ['--publish', '--publish'], ['--mode', 'full;echo']]) assert.throws(() => parseLibraryArgs(args));
   const cards = Array.from({length: 15}, (_, i) => card(i + 1));
   assert.deepEqual(selectTrialCards(cards).map(c => c.word), words);
+});
+
+test('generation plan adds A for dictionary changes, preserves accepted jobs, and ignores MP3-only checkpoints', () => {
+  const plan = (message, dictionaryChanged = false) => libraryJobs({eventName: 'push', event: {ref: 'refs/heads/main', head_commit: {message}}, dictionaryChanged});
+  assert.deepEqual(plan('Run Chonishvili A dictionary [fish-a-v1]'), [{voice: 'a', mode: 'full', continuation: 0}]);
+  assert.deepEqual(plan('Import 12 new Englex entries', true), [{voice: 'a', mode: 'full', continuation: 0}]);
+  assert.deepEqual(plan('Run accepted Fish dictionary [fish-all-v1]', true), [{voice: 'accepted', mode: 'full', continuation: 0}, {voice: 'a', mode: 'full', continuation: 0}]);
+  assert.deepEqual(plan('Run accepted Fish dictionary [fish-all-v1]'), [{voice: 'accepted', mode: 'full', continuation: 0}]);
+  assert.deepEqual(plan('Run English accent trial [fish-en-gb-v1]'), [{voice: 'english', mode: 'trial', continuation: 0}]);
+  assert.deepEqual(plan('Add 50 Fish voice recordings (a-v1)'), []);
+  assert.deepEqual(plan('Improve the settings selector'), []);
+  assert.deepEqual(libraryJobs({eventName: 'push', event: {ref: 'refs/heads/other'}, dictionaryChanged: true}), []);
+  assert.deepEqual(libraryJobs({eventName: 'workflow_dispatch', event: {inputs: {voice: 'a', mode: 'full'}}}), [{voice: 'a', mode: 'full', continuation: 0}]);
+  assert.deepEqual(libraryJobs({eventName: 'workflow_dispatch', event: {inputs: {voice: 'a', mode: 'full', continuation: '7'}}}), [{voice: 'a', mode: 'full', continuation: 7}]);
+  assert.throws(() => libraryJobs({eventName: 'workflow_dispatch', event: {inputs: {voice: 'paid', mode: 'full'}}}));
+});
+
+test('only published A progress at the deadline continues, at most eight times, never on errors', () => {
+  const partial = {voice: 'a', mode: 'full', stopReason: 'deadline', complete: false, generated: 50, remaining: 8000, publishedCommits: 1};
+  assert.equal(nextContinuation(partial, 0), 1);
+  assert.equal(nextContinuation(partial, '7'), 8);
+  assert.equal(nextContinuation(partial, 8), null);
+  for (const change of [{voice: 'accepted'}, {voice: 'english'}, {mode: 'trial'}, {stopReason: 'error'}, {stopReason: null},
+    {complete: true}, {generated: 0}, {generated: -1}, {remaining: 0}, {publishedCommits: 0}, {generated: undefined}]) {
+    assert.equal(nextContinuation({...partial, ...change}, 0), null);
+  }
+  assert.equal(nextContinuation(undefined, 0), null);
+  for (const value of [-1, 9, 1.5, '1;echo', '']) {
+    assert.throws(() => nextContinuation(partial, value));
+    assert.throws(() => libraryJobs({eventName: 'workflow_dispatch', event: {inputs: {voice: 'a', mode: 'full', continuation: value}}}));
+  }
+});
+
+test('A keeps the actual approved recover bytes and generates only missing current and future entries with its fixed free request', async t => {
+  const options = await fixture(t, 2);
+  const approved = await readFile(new URL(`../dist/${A_RECOVER_SOURCE}`, import.meta.url));
+  const recover = {id: A_RECOVER_ID, word: 'recover'};
+  const cards = [recover, card(2)];
+  await writeFile(join(options.distDir, 'dictionary.json'), JSON.stringify({cards}));
+  const source = join(options.distDir, A_RECOVER_SOURCE);
+  await mkdir(join(source, '..'), {recursive: true});
+  await writeFile(source, approved);
+  const config = voiceConfiguration('a');
+  const accepted = voiceConfiguration('accepted');
+  await mkdir(join(options.distDir, 'audio', accepted.audioDirectory), {recursive: true});
+  await writeFile(join(options.distDir, 'audio', accepted.audioDirectory, `${A_RECOVER_ID}.mp3`), mp3);
+  await writeFile(join(options.distDir, accepted.indexFilename), 'preserve legacy index');
+  const requests = [];
+  const published = [];
+  const runA = async () => generateFishLibrary({...options, voice: 'a', mode: 'full', publish: true,
+    publisher: async ({ids, voice}) => { assert.equal(voice, 'a'); published.push(ids); return 'a'.repeat(40); },
+    fetchImpl: async (url, init) => {
+      assert.equal(url, ENDPOINT);
+      assert.equal(init.headers.model, 's2.1-pro-free');
+      const payload = JSON.parse(init.body);
+      assert.deepEqual(payload, {text: A_PREFIX + (requests.length ? 'a new future phrase' : 'doctor'), temperature: 0.3,
+        reference_id: VOICE_ID, format: 'mp3', mp3_bitrate: 128, latency: 'normal'});
+      requests.push(payload.text); return response();
+    }});
+  const result = await runA();
+  assert.equal(result.seeded, 1);
+  assert.equal(result.generated, 1);
+  assert.equal(result.available, 2);
+  assert.equal(result.complete, true);
+  assert.deepEqual(published, [[A_RECOVER_ID], [card(2).id]]);
+  assert.deepEqual(await readFile(join(options.distDir, 'audio', config.audioDirectory, `${A_RECOVER_ID}.mp3`)), approved);
+  assert.deepEqual(await readFile(source), approved);
+  const future = {...card(3), word: 'a new future phrase'};
+  await writeFile(join(options.distDir, 'dictionary.json'), JSON.stringify({cards: [...cards, future]}));
+  const resumed = await runA();
+  assert.equal(resumed.seeded, 0);
+  assert.equal(resumed.generated, 1);
+  assert.equal(resumed.available, 3);
+  assert.equal(requests.length, 2);
+  assert.deepEqual(JSON.parse(await readFile(join(options.distDir, config.indexFilename))),
+    {version: 1, voiceId: VOICE_ID, engine: ENGINE, profile: A_PROFILE, cards: [A_RECOVER_ID, card(2).id, future.id]});
+  assert.deepEqual(await readFile(join(options.distDir, 'audio', accepted.audioDirectory, `${A_RECOVER_ID}.mp3`)), mp3);
+  assert.equal(await readFile(join(options.distDir, accepted.indexFilename), 'utf8'), 'preserve legacy index');
+});
+
+test('A refuses to replace an existing recover recording or use a changed approved sample', async t => {
+  const options = await fixture(t, 0);
+  const approved = await readFile(new URL(`../dist/${A_RECOVER_SOURCE}`, import.meta.url));
+  const cards = [{id: A_RECOVER_ID, word: 'recover'}];
+  const source = join(options.distDir, A_RECOVER_SOURCE);
+  await mkdir(join(source, '..'), {recursive: true});
+  await writeFile(source, approved);
+  await seedApprovedA(options.distDir, cards);
+  const target = join(options.distDir, 'audio', voiceConfiguration('a').audioDirectory, `${A_RECOVER_ID}.mp3`);
+  await writeFile(target, mp3);
+  await assert.rejects(seedApprovedA(options.distDir, cards), /not overwritten/);
+  assert.deepEqual(await readFile(target), mp3);
+  await writeFile(source, mp3);
+  await assert.rejects(seedApprovedA(options.distDir, cards), /changed or is invalid/);
 });
 
 test('credentials, free model and worker bounds are checked before mutation', async t => {
@@ -196,9 +292,9 @@ test('existing raw original is reused and processed once after a failed processi
 });
 
 test('publisher commits only Fish paths on newest main, preserves dictionary changes, and never resets working copy', async t => {
-  for (const voice of ['english', 'accepted']) {
+  for (const voice of ['english', 'accepted', 'a']) {
   const config = voiceConfiguration(voice);
-  const expectedIndex = cards => ({version: 1, voiceId: VOICE_ID, engine: ENGINE, ...(voice === 'english' ? {profile: PROFILE} : {}), cards});
+  const expectedIndex = cards => ({version: 1, voiceId: VOICE_ID, engine: ENGINE, ...(config.manifestProfile ? {profile: config.manifestProfile} : {}), cards});
   const options = await fixture(t, 2);
   const repoDir = join(options.workDir, 'repo');
   const remote = join(options.workDir, 'remote.git');
@@ -210,7 +306,8 @@ test('publisher commits only Fish paths on newest main, preserves dictionary cha
   await git('remote', 'add', 'origin', remote);
   await mkdir(join(repoDir, 'dist'));
   await writeFile(join(repoDir, 'dist', 'dictionary.json'), JSON.stringify({cards: [card(1), card(2)]}));
-  await writeFile(join(repoDir, 'dist', config.indexFilename), JSON.stringify(expectedIndex([])));
+  // The first A checkpoint must work when no A manifest exists on main yet.
+  if (voice !== 'a') await writeFile(join(repoDir, 'dist', config.indexFilename), JSON.stringify(expectedIndex([])));
   await writeFile(join(repoDir, 'unrelated.txt'), 'original');
   await git('add', '.'); await git('commit', '-m', 'initial'); await git('push', '-u', 'origin', 'main');
   const firstHead = await git('rev-parse', 'HEAD');
