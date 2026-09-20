@@ -1,0 +1,64 @@
+name: Compare Chonishvili English pronunciation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: english-pronunciation-review
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' &&
+      startsWith(github.event.head_commit.message, 'Prepare same-voice English review [english-review-v3]'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Ensure accepted audio processing is available
+        shell: bash
+        run: |
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install --yes ffmpeg
+          fi
+      - name: Test the bounded generation and publication
+        run: node --test tests/english-review.test.mjs tests/publish-english-review.test.mjs
+      - name: Generate three review samples with the same voice
+        env:
+          FISH_API_KEY: ${{ secrets.FISH_API_KEY }}
+        run: node scripts/generate-english-review.mjs
+      - name: Publish only review audio on the latest main
+        run: node scripts/publish-english-review.mjs
+      - name: Publish samples to Pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run pages.yml --ref main
+      - name: Preserve originals and processed samples
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: same-voice-english-review-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .english-review/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
