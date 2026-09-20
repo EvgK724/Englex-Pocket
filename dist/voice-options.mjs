@@ -9,6 +9,7 @@ export const VOICE_OPTIONS = Object.freeze([
   Object.freeze({uri:SOFT_VOICE_URI,label:'Doris'})
 ]);
 export const CHONISHVILI_A_MANIFEST = 'fish-chonishvili-a-v1-index.json';
+export const CHONISHVILI_CLEAN_MANIFEST = 'fish-chonishvili-a-clean-v1-index.json';
 export const ENGLEX_AI_MANIFEST = 'englex-ai-index.json';
 export const ENGLEX_RYAN_MANIFEST = 'englex-ryan-index.json';
 export const ENGLEX_RYAN_VOICE = 'en-GB-RyanNeural';
@@ -49,6 +50,19 @@ export function validateChonishviliAManifest(raw,validIds) {
   return new Set(raw.cards);
 }
 
+export function validateChonishviliCleanManifest(raw,validIds) {
+  if(!raw||raw.version!==1||raw.voiceId!=='089f2e853e064d6fb15f5b5882914b52'||
+      raw.engine!=='s2.1-pro-free'||raw.profile!=='a-clean-v1'||raw.sourceProfile!=='a-v1'||
+      !Array.isArray(raw.cards)||raw.count!==raw.cards.length||
+      raw.cards.some(id=>typeof id!=='string'||!/^[a-f0-9]{20}$/.test(id)||!validIds.has(id))||
+      new Set(raw.cards).size!==raw.cards.length||!raw.sourceBlobs||
+      typeof raw.sourceBlobs!=='object'||Array.isArray(raw.sourceBlobs)||
+      Object.keys(raw.sourceBlobs).length!==raw.cards.length||
+      raw.cards.some(id=>!Object.hasOwn(raw.sourceBlobs,id)||
+        typeof raw.sourceBlobs[id]!=='string'||!/^[a-f0-9]{40}$/.test(raw.sourceBlobs[id])))return null;
+  return new Set(raw.cards);
+}
+
 export function validateSoftVoiceManifest(raw,validIds) {
   if(!raw||raw.version!==1||raw.provider!=='AI Voice Generator'||raw.voice!=='delicate'||
       !Array.isArray(raw.cards)||raw.count!==raw.cards.length||
@@ -57,20 +71,28 @@ export function validateSoftVoiceManifest(raw,validIds) {
   return new Set(raw.cards);
 }
 
-export function voiceCardIds(voiceURI,{softIds=new Set(),chonishviliAIds=new Set(),englexRecordings=new Map(),englexRyanIds=new Set()}={}) {
+export function voiceCardIds(voiceURI,{softIds=new Set(),chonishviliAIds=new Set(),chonishviliCleanIds=new Set(),englexRecordings=new Map(),englexRyanIds=new Set()}={}) {
   if(voiceURI===SOFT_VOICE_URI)return softIds;
-  if(voiceURI===CHONISHVILI_A_VOICE_URI)return chonishviliAIds;
+  if(voiceURI===CHONISHVILI_A_VOICE_URI)return new Set([...chonishviliAIds,...chonishviliCleanIds]);
   if(voiceURI===ENGLEX_AI_VOICE_URI)return new Set([...englexRecordings.keys(),...englexRyanIds]);
   return new Set();
 }
 
-export function recordingForVoice({cardId,voiceURI,softIds=new Set(),chonishviliAIds=new Set(),englexRecordings=new Map(),englexRyanIds=new Set(),failedRecordings=new Set()}) {
+export function recordingForVoice({cardId,voiceURI,softIds=new Set(),chonishviliAIds=new Set(),chonishviliCleanIds=new Set(),englexRecordings=new Map(),englexRyanIds=new Set(),failedRecordings=new Set()}) {
   if(typeof cardId!=='string'||!/^[a-f0-9]{20}$/.test(cardId))return null;
   const option=VOICE_OPTIONS.find(voice=>voice.uri===voiceURI);
   if(!option)return null;
-  let path=null,key=`${voiceURI}:${cardId}`,label=option.label,source=null;
+  let path=null,key=`${voiceURI}:${cardId}`,label=option.label,source=null,fallback=false;
   if(voiceURI===SOFT_VOICE_URI&&softIds.has(cardId))path=`audio/${cardId}.mp3`;
-  if(voiceURI===CHONISHVILI_A_VOICE_URI&&chonishviliAIds.has(cardId))path=`audio/fish-chonishvili-a-v1/${cardId}.mp3?v=a-v1`;
+  if(voiceURI===CHONISHVILI_A_VOICE_URI){
+    const cleanKey=`${voiceURI}:clean:${cardId}`;
+    if(chonishviliCleanIds.has(cardId)&&!failedRecordings.has(cleanKey)){
+      path=`audio/fish-chonishvili-a-clean-v1/${cardId}.mp3?v=a-clean-v1`;key=cleanKey;source='choni-clean';
+    }else if(chonishviliAIds.has(cardId)){
+      path=`audio/fish-chonishvili-a-v1/${cardId}.mp3?v=a-v1`;source='choni-original';
+      fallback=chonishviliCleanIds.has(cardId)&&failedRecordings.has(cleanKey);
+    }
+  }
   if(voiceURI===ENGLEX_AI_VOICE_URI){
     if(englexRecordings.has(cardId)){
       path=englexRecordings.get(cardId);key=`${voiceURI}:original:${cardId}`;source='englex-ai';
@@ -80,5 +102,5 @@ export function recordingForVoice({cardId,voiceURI,softIds=new Set(),chonishvili
     }
   }
   // No voice substitutes for another: an absent record is genuinely unavailable.
-  return path&&!failedRecordings.has(key)?{path,key,label,source}:null;
+  return path&&!failedRecordings.has(key)?{path,key,label,source,fallback}:null;
 }

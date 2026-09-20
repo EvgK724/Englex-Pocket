@@ -1,0 +1,107 @@
+name: Prepare quieter Choni recordings
+
+on:
+  workflow_dispatch:
+    inputs:
+      continuation:
+        description: 'Bounded continuation (0 for a new run, maximum8)'
+        type: number
+        default: 0
+        required: false
+  push:
+    branches: [main]
+    paths: ['.github/workflows/choni-clean.yml']
+  workflow_run:
+    workflows: ['Prepare Fish voice library']
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  clean:
+    # Fish checkpoints use GITHUB_TOKEN and do not trigger push workflows.
+    # A successful source-generation run reliably starts finite cleanup instead.
+    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository) }}
+    concurrency:
+      group: choni-clean-recordings
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Ensure the offline audio processor is available
+        run: |
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install --yes ffmpeg
+          fi
+      - name: Test preservation and safe publication without any external services
+        run: python scripts/test-clean-choni.py
+      - name: Prepare finite missing derivatives and publish checkpoints
+        id: clean
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CONTINUATION_COUNT: ${{ inputs.continuation || 0 }}
+        run: python scripts/clean-choni.py --publish --deadline-minutes 250 --continuation "$CONTINUATION_COUNT"
+      - name: Read progress and bounded continuation status
+        id: status
+        if: ${{ !cancelled() }}
+        env:
+          CONTINUATION_COUNT: ${{ inputs.continuation || 0 }}
+        run: |
+          python - <<'PY'
+          import importlib.util, json, os
+          from pathlib import Path
+          path = Path('.choni-clean/status.json')
+          if not path.exists(): raise SystemExit(0)
+          spec = importlib.util.spec_from_file_location('clean', 'scripts/clean-choni.py')
+          clean = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(clean)
+          status = json.loads(path.read_text())
+          next_run = clean.next_continuation(status, int(os.environ['CONTINUATION_COUNT']))
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f"deploy={str(status.get('published_commits', 0) > 0).lower()}\n")
+              if next_run is not None: output.write(f'continuation={next_run}\n')
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write(f"Choni: {status.get('generated', 0)} new derivatives, "
+                            f"{status.get('available', 0)} available, {status.get('remaining', 0)} remaining.\n\n"
+                            f"Original A recordings preserved. Starting dictionary: {status.get('snapshot_count', 0)} cards. "
+                            f"Complete for that snapshot: {status.get('complete') is True}.\n")
+          PY
+      - name: Publish the latest successful checkpoint to Pages
+        if: ${{ !cancelled() && steps.status.outputs.deploy == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run pages.yml --ref main
+      - name: Continue only productive processing stopped by its deadline
+        if: ${{ !cancelled() && steps.status.outputs.continuation != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          NEXT_CONTINUATION: ${{ steps.status.outputs.continuation }}
+        run: gh workflow run choni-clean.yml --ref main -f continuation="$NEXT_CONTINUATION"
+      - name: Preserve recoverable derivatives and non-sensitive status
+        if: ${{ !cancelled() && steps.clean.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: choni-clean-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .choni-clean/status.json
+            dist/fish-chonishvili-a-clean-v1-index.json
+            dist/audio/fish-chonishvili-a-clean-v1/*.mp3
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
