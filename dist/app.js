@@ -1,7 +1,7 @@
-import {normalizeText, speechText, selectCards, chooseVoice, sanitizeProgress, formatDate} from './core.mjs';
+import {normalizeText, speechText, selectCards, sanitizeProgress, formatDate} from './core.mjs';
 import {RecordedSpeech} from './recorded-speech.mjs';
 import {assetUrl} from './paths.mjs';
-import {FISH_VOICE_URI, FISH_ENGLISH_VOICE_URI, FISH_PROFILES, isFishVoice, idsForFishVoice, validateFishManifest, recordingFor} from './fish-voice.mjs?v=recover-phonemes-2';
+import {VOICE_OPTIONS, ENGLEX_AI_VOICE_URI, CHONISHVILI_A_VOICE_URI, SOFT_VOICE_URI, CHONISHVILI_A_MANIFEST, ENGLEX_AI_MANIFEST, migrateVoicePreference, validateEnglexAIManifest, validateChonishviliAManifest, voiceCardIds, recordingForVoice} from './voice-options.mjs?v=three-voices-1';
 
 const $ = id => document.getElementById(id);
 const icons = {
@@ -27,10 +27,11 @@ document.querySelectorAll('[data-icon]').forEach(node => {
 });
 
 const STORAGE_KEY='englex-pocket-v1';
-const state={cards:[],filtered:[],stars:new Set(),ratings:Object.create(null),query:'',kind:'all',sort:'newest',deck:'all',index:0,flipped:false,rate:.9,voiceURI:'auto'};
+const state={cards:[],filtered:[],stars:new Set(),ratings:Object.create(null),query:'',kind:'all',sort:'newest',deck:'all',index:0,flipped:false,rate:.9,voiceURI:CHONISHVILI_A_VOICE_URI};
 let byId=new Map(),metadata=null, toastTimer,storageWarning=false;
 let currentId=null;
-let audioIds=new Set(),fishIds=new Set(),fishEnglishIds=new Set();
+let audioIds=new Set(),chonishviliAIds=new Set(),englexRecordings=new Map();
+const voiceLoadStatus=new Map(VOICE_OPTIONS.map(voice=>[voice.uri,'loading']));
 const COLLECTION_REFRESH_DELAY=60_000;
 let collectionRequest=null,lastCollectionAttempt=0,collectionSignature='';
 const failedRecordings=new Set();
@@ -50,9 +51,9 @@ function syncInstalledState(){
 }
 function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,3000);}
 function current(){return state.filtered[state.index] || null;}
-function progress(){return {version:1,recordedVoiceVersion:1,stars:[...state.stars],ratings:state.ratings,currentId:current()?.id || currentId,rate:state.rate,voiceURI:state.voiceURI,kind:state.kind,sort:state.sort};}
+function progress(){return {version:1,recordedVoiceVersion:2,stars:[...state.stars],ratings:state.ratings,currentId:current()?.id || currentId,rate:state.rate,voiceURI:state.voiceURI,kind:state.kind,sort:state.sort};}
 function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(progress()));}catch{if(!storageWarning){toast('Браузер не сохраняет прогресс. Копию можно скачать в настройках.');storageWarning=true;}}}
-function loadProgress(){try{const raw=JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');if(raw){const p=sanitizeProgress(raw,new Set(byId.keys()));state.stars=new Set(p.stars);state.ratings=p.ratings;state.rate=p.rate;state.voiceURI=raw.recordedVoiceVersion===1?p.voiceURI:'auto';state.kind=p.kind;state.sort=p.sort;currentId=p.currentId;}}catch{toast('Сохранённый прогресс недоступен. Словарь можно использовать.');}}
+function loadProgress(){try{const raw=JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');if(raw){const p=sanitizeProgress(raw,new Set(byId.keys()));state.stars=new Set(p.stars);state.ratings=p.ratings;state.rate=p.rate;state.voiceURI=migrateVoicePreference(raw);state.kind=p.kind;state.sort=p.sort;currentId=p.currentId;}}catch{toast('Сохранённый прогресс недоступен. Словарь можно использовать.');}}
 function updateCounts(){
   const count=n=>n.toLocaleString('ru-RU');
   $('total-count').textContent=count(state.cards.length);$('all-count').textContent=count(state.cards.length);$('star-count').textContent=count(state.stars.size);
@@ -145,87 +146,65 @@ function mark(value){
 }
 function toggleStar(){const c=current();if(!c)return;const was=state.stars.has(c.id);if(was)state.stars.delete(c.id);else state.stars.add(c.id);save();updateCounts();if(state.deck==='starred'&&was){const old=state.index;state.filtered=state.filtered.filter(x=>x.id!==c.id);state.index=Math.min(old,Math.max(0,state.filtered.length-1));renderResults();renderCard();}else{for(const id of ['star-front','star-back']){$(id).setAttribute('aria-pressed',String(!was));$(id).setAttribute('aria-label',was?'Добавить в избранное':'Убрать из избранного');}}}
 
-// Keep utterances alive and preserve the queue: this is the playback approach
-// already confirmed by the learner on their device.
-let synth=null;try{synth=window.speechSynthesis;}catch{}
-const speechSupported=!!synth&&typeof window.SpeechSynthesisUtterance==='function';
-let voices=[],epoch=0,nextJob=0;
-const speechJobs=new Map();
+function voiceData(){return {softIds:audioIds,chonishviliAIds,englexRecordings};}
+function selectedVoice(){return VOICE_OPTIONS.find(voice=>voice.uri===state.voiceURI)||VOICE_OPTIONS[1];}
 function refreshVoices(){
-  if(speechSupported)try{const found=synth.getVoices().filter(v=>/^en(?:[-_]|$)/i.test(v.lang));if(found.length)voices=found;}catch{}
-  const options=[[audioIds.size?'AI Voice · мягкий голос':'Лучший доступный английский','auto']];
-  for(const profile of FISH_PROFILES)if(idsForFishVoice(profile.uri,fishIds,fishEnglishIds).size)options.push([profile.label,profile.uri]);
-  if(speechSupported)options.push(['Автовыбор голоса устройства','device:auto']);
-  voices.forEach(v=>options.push([`${v.name} · ${v.lang}`,v.voiceURI]));
-  // Preserve a saved Fish preference while optional metadata is still loading.
-  const visibleValue=options.some(([,value])=>value===state.voiceURI)?state.voiceURI:'auto';
   for(const id of ['voice-select','card-voice-select']){
-    const select=$(id);select.replaceChildren(...options.map(([label,value])=>new Option(label,value)));select.value=visibleValue;
+    const select=$(id);select.replaceChildren(...VOICE_OPTIONS.map(voice=>new Option(voice.label,voice.uri)));select.value=state.voiceURI;
   }
-  updateCardVoiceNote();
+  updateCardVoiceNote();updateVoiceCoverage();
 }
-function activeVoiceURI(){return isFishVoice(state.voiceURI)&&!idsForFishVoice(state.voiceURI,fishIds,fishEnglishIds).size?'auto':state.voiceURI;}
-function getRecording(card){return recordingFor({cardId:card?.id,voiceURI:activeVoiceURI(),speechSupported,audioIds,fishIds,fishEnglishIds,failedRecordings});}
+function getRecording(card){return recordingForVoice({cardId:card?.id,voiceURI:state.voiceURI,...voiceData(),failedRecordings});}
 function canPlayRecording(card){return !!getRecording(card);}
+function updateVoiceCoverage(){
+  const count=n=>n.toLocaleString('ru-RU');
+  $('voice-coverage').textContent=VOICE_OPTIONS.map(voice=>`${voice.label}: ${count(voiceCardIds(voice.uri,voiceData()).size)} из ${count(state.cards.length)} карточек.`).join(' ');
+  $('fish-coverage').hidden=true;
+}
 function updateCardVoiceNote(){
-  const node=$('card-voice-note');
-  if(!isFishVoice(activeVoiceURI())){node.textContent='Выбор сохраняется для следующих карточек.';return;}
-  const ids=idsForFishVoice(state.voiceURI,fishIds,fishEnglishIds),recording=getRecording(current());
+  const ids=voiceCardIds(state.voiceURI,voiceData()),recording=getRecording(current());
   const coverage=`${ids.size.toLocaleString('ru-RU')} из ${state.cards.length.toLocaleString('ru-RU')} карточек`;
-  node.textContent=recording&&!recording.fallback?`${coverage} · запись этого слова готова.`:`${coverage} · здесь используется ${speechSupported?'голос устройства':'AI Voice, если запись доступна'}.`;
+  let status=recording?'Запись этой карточки готова.':voiceLoadStatus.get(state.voiceURI)==='loading'?'Загружаем доступные записи…':state.voiceURI===CHONISHVILI_A_VOICE_URI?'Запись этой карточки ещё не готова.':'Запись этого голоса для этой карточки пока недоступна.';
+  if(current()&&failedRecordings.has(`${state.voiceURI}:${current().id}`))status='Запись не загрузилась. Нажмите «Перезапустить звук».';
+  $('card-voice-note').textContent=`${selectedVoice().label} · ${coverage}. ${status}`;
 }
 function voiceTestCard(){
-  if(!isFishVoice(activeVoiceURI()))return current()||byId.get('8c7b57756ded59cf6ce7')||{word:'Recover.'};
-  const card=current(),recording=getRecording(card);
-  if(recording&&!recording.fallback)return card;
-  const ids=idsForFishVoice(state.voiceURI,fishIds,fishEnglishIds);
-  for(const id of ids){const candidate=byId.get(id),available=getRecording(candidate);if(available&&!available.fallback)return candidate;}
+  const card=current();
+  if(getRecording(card))return card;
+  for(const id of voiceCardIds(state.voiceURI,voiceData())){const candidate=byId.get(id);if(getRecording(candidate))return candidate;}
   return null;
 }
-function selectVoice(value){state.voiceURI=value;resetSpeech();save();}
+function selectVoice(value){
+  if(!VOICE_OPTIONS.some(voice=>voice.uri===value))return;
+  state.voiceURI=value;resetSpeech();save();
+}
 function updateAudioButtons(){
-  for(const id of ['speak-front','speak-back'])if($(id).getAttribute('aria-busy')!=='true')$(id).disabled=!canPlayRecording(current())&&!speechSupported;
-  if($('test-voice').getAttribute('aria-busy')!=='true')$('test-voice').disabled=!voiceTestCard()||(!speechSupported&&!canPlayRecording(voiceTestCard()));
+  for(const id of ['speak-front','speak-back'])if($(id).getAttribute('aria-busy')!=='true')$(id).disabled=!canPlayRecording(current());
+  if($('test-voice').getAttribute('aria-busy')!=='true')$('test-voice').disabled=!voiceTestCard();
+  const sample=voiceTestCard();
+  $('voice-test-note').textContent=sample?`Будет звучать: ${speechText(sample.word)}`:'Записей выбранного голоса пока нет.';
   updateCardVoiceNote();
 }
 function pronounce(card,button){
   if(!card||button.disabled)return;
   const recording=getRecording(card);
-  if(isFishVoice(activeVoiceURI())&&(!recording||recording.fallback))toast(recording?'Для этой карточки пока звучит AI Voice.':'Для этой карточки пока звучит голос устройства.');
-  if(!recording){recordedSpeech.stop();speak(card.word,button);return;}
-  if(speechJobs.size)resetSpeech();
-  // Stop first: the old request may have used this same persistent card button.
+  if(!recording){updateAudioButtons();return;}
+  // Begin recorded playback in this click handler to preserve mobile activation.
   recordedSpeech.stop();
   button.disabled=true;button.setAttribute('aria-busy','true');$('audio-reset').hidden=false;
-  $('audio-status').textContent=`Загружаем запись ${recording.label}…`;
+  $('audio-status').textContent=`Загружаем ${recording.label}: ${speechText(card.word)}…`;
   recordedSpeech.play(assetUrl(recording.path),{rate:state.rate,
     onStart:()=>{$('audio-status').textContent=`${recording.label}: ${speechText(card.word)}`;},
     onFinish:()=>{button.removeAttribute('aria-busy');button.disabled=false;$('audio-status').textContent='';$('audio-reset').hidden=true;updateAudioButtons();},
     onError:()=>{failedRecordings.add(recording.key);updateAudioButtons();
-      if(recording.key!==card.id&&getRecording(card)){button.disabled=false;pronounce(card,button);}
-      else if(speechSupported){button.disabled=false;if(isFishVoice(activeVoiceURI()))toast('Запись недоступна. Используется голос устройства.');speak(card.word,button);}
-      else{$('audio-status').textContent='Не удалось загрузить запись. Проверьте подключение и нажмите «Перезапустить звук».';$('audio-reset').hidden=false;}
+      $('audio-status').textContent='Не удалось загрузить выбранную запись. Проверьте подключение и нажмите «Перезапустить звук».';$('audio-reset').hidden=false;
     }
   });
 }
-function resumeSpeech(){try{if(synth?.paused)synth.resume();}catch{}}
-function finishSpeech(id,failed){const job=speechJobs.get(id);if(!job)return;clearTimeout(job.timer);speechJobs.delete(id);job.button.disabled=!speechSupported;job.button.removeAttribute('aria-busy');$('audio-status').textContent=failed?'Звук не запустился. Перезапустите озвучку и нажмите ещё раз.':speechJobs.size?'Следующая фраза — в очереди.':'';$('audio-reset').hidden=!failed&&!speechJobs.size;}
-function speak(text,button){
-  if(!speechSupported||button.disabled)return;
-  refreshVoices();resumeSpeech();
-  const utterance=new SpeechSynthesisUtterance(speechText(text));const voice=chooseVoice(voices,state.voiceURI);
-  if(voice)utterance.voice=voice;
-  utterance.lang=voice?.lang.replace('_','-') || 'en-US';utterance.rate=state.rate;utterance.volume=1;
-  const id=++nextJob,jobEpoch=epoch,expectedMs=Math.max(3500,utterance.text.length*110/state.rate);
-  const waitMs=[...speechJobs.values()].reduce((sum,j)=>sum+j.expectedMs,0);
-  const stall=()=>{if(!speechJobs.has(id)||jobEpoch!==epoch)return;$('audio-status').textContent='Озвучка задержалась. Нажмите «Перезапустить звук» и повторите.';$('audio-reset').hidden=false;};
-  const job={button,utterance,expectedMs,timer:setTimeout(stall,waitMs+expectedMs+15000)};speechJobs.set(id,job);
-  button.disabled=true;button.setAttribute('aria-busy','true');$('audio-reset').hidden=false;$('audio-status').textContent=speechJobs.size>1?'Добавлено в очередь.':'Запуск озвучки…';
-  utterance.onstart=()=>{if(jobEpoch!==epoch||!speechJobs.has(id))return;clearTimeout(job.timer);job.timer=setTimeout(stall,expectedMs+15000);$('audio-status').textContent=`Озвучивается: ${utterance.text}`;};
-  utterance.onend=()=>{if(jobEpoch===epoch)finishSpeech(id,false);};utterance.onerror=()=>{if(jobEpoch===epoch)finishSpeech(id,true);};
-  try{synth.speak(utterance);resumeSpeech();}catch{finishSpeech(id,true);}
+function resetSpeech(){
+  recordedSpeech.stop();failedRecordings.clear();
+  refreshVoices();updateAudioButtons();$('audio-reset').hidden=true;$('audio-status').textContent='Нажмите на динамик рядом с английским выражением.';
 }
-function resetSpeech(){recordedSpeech.stop();failedRecordings.clear();epoch++;speechJobs.forEach(j=>{clearTimeout(j.timer);j.button.disabled=!speechSupported;j.button.removeAttribute('aria-busy');});speechJobs.clear();try{synth?.cancel();}catch{}resumeSpeech();refreshVoices();updateAudioButtons();$('audio-reset').hidden=true;$('audio-status').textContent='Нажмите на динамик рядом с английским выражением.';}
 function bindEvents(){
   $('flip').addEventListener('click',()=>flip());$('flashcard').addEventListener('click',e=>{if(e.target.closest('button')||getSelection()?.toString())return;flip();});
   $('previous').addEventListener('click',()=>move(-1));$('next').addEventListener('click',()=>move(1));
@@ -272,7 +251,6 @@ if(document.fonts){
   document.fonts.addEventListener('loadingdone',scheduleCardTextFit);
 }
 refreshVoices();updateAudioButtons();
-if(speechSupported)synth.addEventListener('voiceschanged',refreshVoices);
 async function fetchCollection(){
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),15_000);
@@ -307,9 +285,9 @@ function installCollection(data,audioIndex,initial){
   }
   if(initial)loadProgress();
   // A temporary audio-index failure keeps recordings already known to the app.
-  if(Array.isArray(audioIndex?.cards))audioIds=new Set(audioIndex.cards.filter(id=>byId.has(id)));
+  if(Array.isArray(audioIndex?.cards)){audioIds=new Set(audioIndex.cards.filter(id=>byId.has(id)));voiceLoadStatus.set(SOFT_VOICE_URI,'ready');}
+  else if(!audioIds.size)voiceLoadStatus.set(SOFT_VOICE_URI,'unavailable');
   refreshVoices();updateAudioButtons();
-  $('voice-coverage').textContent=audioIds.size===state.cards.length?`AI Voice: все ${audioIds.size.toLocaleString('ru-RU')} карточки. Один мягкий голос на всех устройствах.`:audioIds.size?`AI Voice: ${audioIds.size.toLocaleString('ru-RU')} из ${state.cards.length.toLocaleString('ru-RU')} карточек. Для остальных доступна озвучка устройства.`:'Доступны английские голоса вашего устройства.';
   $('source-info').textContent=`Все ${metadata.count.toLocaleString('ru-RU')} записи из вашего Englex за ${formatDate(metadata.from)}–${formatDate(metadata.through)}. Переводы сохранены из исходного словаря; транскрипция показана там, где она была в экспорте.`;
   $('collection-note').textContent=`Englex · ${formatDate(metadata.from)}–${formatDate(metadata.through)}`;
   if(initial){
@@ -322,32 +300,37 @@ function installCollection(data,audioIndex,initial){
   }
 }
 // Optional voice metadata never delays opening or refreshing the dictionary.
-let fishManifestRequest=null;
-function refreshFishManifest(){
-  if(fishManifestRequest)return fishManifestRequest;
-  fishManifestRequest=Promise.allSettled(FISH_PROFILES.map(async profile=>{
+let voiceManifestRequest=null;
+function refreshVoiceManifests(){
+  if(voiceManifestRequest)return voiceManifestRequest;
+  const manifests=[
+    {uri:CHONISHVILI_A_VOICE_URI,path:CHONISHVILI_A_MANIFEST,validate:validateChonishviliAManifest,install:next=>{chonishviliAIds=next;}},
+    {uri:ENGLEX_AI_VOICE_URI,path:ENGLEX_AI_MANIFEST,validate:validateEnglexAIManifest,install:next=>{englexRecordings=next;}}
+  ];
+  voiceManifestRequest=Promise.allSettled(manifests.map(async manifest=>{
     const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),8000);
     try{
-      const response=await fetch(`${assetUrl(profile.manifest)}?sync=${Date.now()}`,{cache:'no-store',signal:controller.signal});
-      if(!response.ok)return;
-      const next=validateFishManifest(await response.json(),new Set(byId.keys()),profile.profile);
-      if(next===null)return;
-      if(profile.uri===FISH_ENGLISH_VOICE_URI)fishEnglishIds=next;else fishIds=next;
-      if(!next.size&&state.voiceURI===profile.uri){state.voiceURI='auto';save();}
-      refreshVoices();updateAudioButtons();
-      const lines=FISH_PROFILES.filter(p=>idsForFishVoice(p.uri,fishIds,fishEnglishIds).size).map(p=>`${p.label}: ${idsForFishVoice(p.uri,fishIds,fishEnglishIds).size.toLocaleString('ru-RU')} из ${state.cards.length.toLocaleString('ru-RU')} карточек.`);
-      $('fish-coverage').hidden=!lines.length;
-      $('fish-coverage').textContent=lines.join(' ')+' Для остальных доступен голос устройства.';
-    }finally{clearTimeout(timeout);}
-  })).finally(()=>{fishManifestRequest=null;});
-  return fishManifestRequest;
+      const response=await fetch(`${assetUrl(manifest.path)}?sync=${Date.now()}`,{cache:'no-store',signal:controller.signal});
+      if(!response.ok)throw new Error('Audio index unavailable');
+      const next=manifest.validate(await response.json(),new Set(byId.keys()));
+      if(next===null)throw new Error('Invalid audio index');
+      // A delayed older deployment must not discard already available recordings.
+      const previous=voiceCardIds(manifest.uri,voiceData());
+      const nextIds=next instanceof Map?new Set(next.keys()):next;
+      if([...previous].some(id=>!nextIds.has(id)))throw new Error('Stale audio index');
+      manifest.install(next);voiceLoadStatus.set(manifest.uri,'ready');
+    }catch{
+      if(voiceLoadStatus.get(manifest.uri)!=='ready')voiceLoadStatus.set(manifest.uri,'unavailable');
+    }finally{clearTimeout(timeout);refreshVoices();updateAudioButtons();}
+  })).finally(()=>{voiceManifestRequest=null;});
+  return voiceManifestRequest;
 }
 function refreshCollection(initial=false){
   if(collectionRequest)return collectionRequest;
   if(!initial&&(!metadata||document.visibilityState==='hidden'||navigator.onLine===false||
     Date.now()-lastCollectionAttempt<COLLECTION_REFRESH_DELAY))return Promise.resolve();
   lastCollectionAttempt=Date.now();
-  collectionRequest=fetchCollection().then(([data,audioIndex])=>{installCollection(data,audioIndex,initial);void refreshFishManifest();}).finally(()=>{collectionRequest=null;});
+  collectionRequest=fetchCollection().then(([data,audioIndex])=>{installCollection(data,audioIndex,initial);void refreshVoiceManifests();}).finally(()=>{collectionRequest=null;});
   return collectionRequest;
 }
 function refreshWhenActive(){
@@ -362,5 +345,6 @@ document.addEventListener('visibilitychange',refreshWhenActive);
 window.addEventListener('pageshow',refreshWhenActive);
 window.addEventListener('online',refreshWhenActive);
 setInterval(refreshWhenActive,5*60_000);
-setInterval(()=>{if(metadata&&document.visibilityState!=='hidden'&&navigator.onLine!==false)void refreshFishManifest();},COLLECTION_REFRESH_DELAY);
+setInterval(()=>{if(metadata&&document.visibilityState!=='hidden'&&navigator.onLine!==false)void refreshVoiceManifests();},COLLECTION_REFRESH_DELAY);
 init();
+

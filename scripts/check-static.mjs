@@ -3,6 +3,7 @@ import {readFile, stat} from 'node:fs/promises';
 import {execFileSync} from 'node:child_process';
 import {assetUrl} from '../dist/paths.mjs';
 import {FISH_PROFILES, validateFishManifest} from '../dist/fish-voice.mjs';
+import {validateChonishviliAManifest, validateEnglexAIManifest} from '../dist/voice-options.mjs';
 import {ORIGINAL_COUNT, validateDictionary, validateAudioIndex} from './dictionary-integrity.mjs';
 
 const root = new URL('../dist/', import.meta.url);
@@ -31,6 +32,16 @@ for(const profile of FISH_PROFILES){
   }
 }
 
+const validIds = new Set(dictionary.cards.map(c => c.id));
+const aIds = validateChonishviliAManifest(JSON.parse(await read('fish-chonishvili-a-v1-index.json')), validIds);
+assert.notEqual(aIds, null, 'Invalid Chonishvili A manifest');
+const englexRecords = validateEnglexAIManifest(JSON.parse(await read('englex-ai-index.json')), validIds);
+assert.notEqual(englexRecords, null, 'Invalid original Englex AI manifest');
+for (const path of [...aIds].map(id => `audio/fish-chonishvili-a-v1/${id}.mp3`).concat([...englexRecords.values()])) {
+  const info = await stat(new URL(path, root));
+  assert.ok(info.isFile() && info.size > 100, `Missing selected-voice recording: ${path}`);
+}
+
 const html = (await read('index.html')).toString();
 const manifest = JSON.parse(await read('manifest.webmanifest'));
 const references = [...html.matchAll(/(?:src|href)="([^"]+)"/g)].map(match => match[1]);
@@ -44,7 +55,7 @@ const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
 assert.equal(new Set(ids).size, ids.length, 'Duplicate HTML id');
 const app = (await read('app.js')).toString();
 for (const [, id] of app.matchAll(/\$\('([^']+)'\)/g)) assert.ok(ids.includes(id), `Missing interface element: ${id}`);
-for (const module of ['app.js', 'core.mjs', 'recorded-speech.mjs', 'paths.mjs', 'fish-voice.mjs']) {
+for (const module of ['app.js', 'core.mjs', 'recorded-speech.mjs', 'paths.mjs', 'fish-voice.mjs', 'voice-options.mjs']) {
   execFileSync(process.execPath, ['--input-type=module', '--check'], {input: await read(module)});
   for (const [, path] of (await read(module)).toString().matchAll(/from\s+['"]([^'"]+)['"]/g)) await stat(new URL(path, root));
 }
@@ -67,3 +78,4 @@ for (const [name, size] of [['apple-touch-icon.png', 180], ['icon-192.png', 192]
   assert.equal(png.readUInt32BE(20), size, name);
 }
 console.log(`Ready: ${dictionary.cards.length} cards (${ORIGINAL_COUNT} original cards protected), ${index.count} recordings (${audioBytes} bytes), all assets present; root and repository paths valid.`);
+
