@@ -1,7 +1,7 @@
 import {normalizeText, speechText, selectCards, sanitizeProgress, formatDate} from './core.mjs';
 import {RecordedSpeech} from './recorded-speech.mjs';
 import {assetUrl} from './paths.mjs';
-import {VOICE_OPTIONS, ENGLEX_AI_VOICE_URI, CHONISHVILI_A_VOICE_URI, SOFT_VOICE_URI, SOFT_VOICE_MANIFEST, CHONISHVILI_A_MANIFEST, ENGLEX_AI_MANIFEST, migrateVoicePreference, validateEnglexAIManifest, validateChonishviliAManifest, validateSoftVoiceManifest, voiceCardIds, recordingForVoice} from './voice-options.mjs?v=three-voices-2';
+import {VOICE_OPTIONS, ENGLEX_AI_VOICE_URI, CHONISHVILI_A_VOICE_URI, SOFT_VOICE_URI, SOFT_VOICE_MANIFEST, CHONISHVILI_A_MANIFEST, ENGLEX_AI_MANIFEST, ENGLEX_RYAN_MANIFEST, migrateVoicePreference, validateEnglexAIManifest, validateEnglexRyanManifest, validateChonishviliAManifest, validateSoftVoiceManifest, voiceCardIds, recordingForVoice} from './voice-options.mjs?v=three-voices-ryan-1';
 
 const $ = id => document.getElementById(id);
 const icons = {
@@ -30,7 +30,7 @@ const STORAGE_KEY='englex-pocket-v1';
 const state={cards:[],filtered:[],stars:new Set(),ratings:Object.create(null),query:'',kind:'all',sort:'newest',deck:'all',index:0,flipped:false,rate:.9,voiceURI:CHONISHVILI_A_VOICE_URI};
 let byId=new Map(),metadata=null, toastTimer,storageWarning=false;
 let currentId=null;
-let audioIds=new Set(),chonishviliAIds=new Set(),englexRecordings=new Map();
+let audioIds=new Set(),chonishviliAIds=new Set(),englexRecordings=new Map(),englexRyanIds=new Set();
 const voiceLoadStatus=new Map(VOICE_OPTIONS.map(voice=>[voice.uri,'loading']));
 const COLLECTION_REFRESH_DELAY=60_000;
 let collectionRequest=null,lastCollectionAttempt=0,collectionSignature='';
@@ -146,7 +146,7 @@ function mark(value){
 }
 function toggleStar(){const c=current();if(!c)return;const was=state.stars.has(c.id);if(was)state.stars.delete(c.id);else state.stars.add(c.id);save();updateCounts();if(state.deck==='starred'&&was){const old=state.index;state.filtered=state.filtered.filter(x=>x.id!==c.id);state.index=Math.min(old,Math.max(0,state.filtered.length-1));renderResults();renderCard();}else{for(const id of ['star-front','star-back']){$(id).setAttribute('aria-pressed',String(!was));$(id).setAttribute('aria-label',was?'Добавить в избранное':'Убрать из избранного');}}}
 
-function voiceData(){return {softIds:audioIds,chonishviliAIds,englexRecordings};}
+function voiceData(){return {softIds:audioIds,chonishviliAIds,englexRecordings,englexRyanIds};}
 function selectedVoice(){return VOICE_OPTIONS.find(voice=>voice.uri===state.voiceURI)||VOICE_OPTIONS[1];}
 function refreshVoices(){
   for(const id of ['voice-select','card-voice-select']){
@@ -160,12 +160,17 @@ function updateVoiceCoverage(){
   const count=n=>n.toLocaleString('ru-RU');
   $('voice-coverage').textContent=VOICE_OPTIONS.map(voice=>`${voice.label}: ${count(voiceCardIds(voice.uri,voiceData()).size)} из ${count(state.cards.length)} карточек.`).join(' ');
   $('fish-coverage').hidden=true;
+  const synthesized=[...englexRyanIds].filter(id=>!englexRecordings.has(id)).length;
+  $('englex-voice-provenance').textContent=`Englex · AI: ${count(englexRecordings.size)} оригинальных записей Englex; ${count(synthesized)} дополнительных записей синтезированы голосом Ryan (Microsoft Edge).`;
 }
 function updateCardVoiceNote(){
   const ids=voiceCardIds(state.voiceURI,voiceData()),recording=getRecording(current());
   const coverage=`${ids.size.toLocaleString('ru-RU')} из ${state.cards.length.toLocaleString('ru-RU')} карточек`;
   let status=recording?'Запись этой карточки готова.':voiceLoadStatus.get(state.voiceURI)==='loading'?'Загружаем доступные записи…':state.voiceURI===CHONISHVILI_A_VOICE_URI?'Запись этой карточки ещё не готова.':'Запись этого голоса для этой карточки пока недоступна.';
-  if(current()&&failedRecordings.has(`${state.voiceURI}:${current().id}`))status='Запись не загрузилась. Нажмите «Перезапустить звук».';
+  if(recording?.source==='englex-ai')status='Оригинальная запись Englex.';
+  if(recording?.source==='generated')status='Дополнительная запись: синтез Ryan (Microsoft Edge).';
+  const candidate=recordingForVoice({cardId:current()?.id,voiceURI:state.voiceURI,...voiceData()});
+  if(candidate&&failedRecordings.has(candidate.key))status='Запись не загрузилась. Нажмите «Перезапустить звук».';
   $('card-voice-note').textContent=`${selectedVoice().label} · ${coverage}. ${status}`;
 }
 function voiceTestCard(){
@@ -182,7 +187,9 @@ function updateAudioButtons(){
   for(const id of ['speak-front','speak-back'])if($(id).getAttribute('aria-busy')!=='true')$(id).disabled=!canPlayRecording(current());
   if($('test-voice').getAttribute('aria-busy')!=='true')$('test-voice').disabled=!voiceTestCard();
   const sample=voiceTestCard();
-  $('voice-test-note').textContent=sample?`Будет звучать: ${speechText(sample.word)}`:'Записей выбранного голоса пока нет.';
+  const sampleRecording=getRecording(sample);
+  const sourceNote=sampleRecording?.source==='generated'?' · синтез Ryan (Microsoft Edge)':sampleRecording?.source==='englex-ai'?' · оригинальная запись Englex':'';
+  $('voice-test-note').textContent=sample?`Будет звучать: ${speechText(sample.word)}${sourceNote}`:'Записей выбранного голоса пока нет.';
   updateCardVoiceNote();
 }
 function pronounce(card,button){
@@ -305,10 +312,12 @@ let voiceManifestRequest=null;
 function refreshVoiceManifests(){
   if(voiceManifestRequest)return voiceManifestRequest;
   const manifests=[
-    {uri:SOFT_VOICE_URI,path:SOFT_VOICE_MANIFEST,validate:validateSoftVoiceManifest,install:next=>{audioIds=next;}},
-    {uri:CHONISHVILI_A_VOICE_URI,path:CHONISHVILI_A_MANIFEST,validate:validateChonishviliAManifest,install:next=>{chonishviliAIds=next;}},
-    {uri:ENGLEX_AI_VOICE_URI,path:ENGLEX_AI_MANIFEST,validate:validateEnglexAIManifest,install:next=>{englexRecordings=next;}}
+    {uri:SOFT_VOICE_URI,path:SOFT_VOICE_MANIFEST,validate:validateSoftVoiceManifest,previous:()=>audioIds,install:next=>{audioIds=next;}},
+    {uri:CHONISHVILI_A_VOICE_URI,path:CHONISHVILI_A_MANIFEST,validate:validateChonishviliAManifest,previous:()=>chonishviliAIds,install:next=>{chonishviliAIds=next;}},
+    {uri:ENGLEX_AI_VOICE_URI,path:ENGLEX_AI_MANIFEST,validate:validateEnglexAIManifest,previous:()=>new Set(englexRecordings.keys()),install:next=>{englexRecordings=next;}},
+    {uri:ENGLEX_AI_VOICE_URI,path:ENGLEX_RYAN_MANIFEST,validate:validateEnglexRyanManifest,previous:()=>englexRyanIds,install:next=>{englexRyanIds=next;}}
   ];
+  const sourceStates=new Map(manifests.map(manifest=>[manifest.path,'loading']));
   voiceManifestRequest=Promise.allSettled(manifests.map(async manifest=>{
     const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),8000);
     try{
@@ -317,13 +326,18 @@ function refreshVoiceManifests(){
       const next=manifest.validate(await response.json(),new Set(byId.keys()));
       if(next===null)throw new Error('Invalid audio index');
       // A delayed older deployment must not discard already available recordings.
-      const previous=voiceCardIds(manifest.uri,voiceData());
+      const previous=manifest.previous();
       const nextIds=next instanceof Map?new Set(next.keys()):next;
       if([...previous].some(id=>!nextIds.has(id)))throw new Error('Stale audio index');
-      manifest.install(next);voiceLoadStatus.set(manifest.uri,'ready');
+      manifest.install(next);sourceStates.set(manifest.path,'ready');
     }catch{
-      if(voiceLoadStatus.get(manifest.uri)!=='ready')voiceLoadStatus.set(manifest.uri,'unavailable');
-    }finally{clearTimeout(timeout);refreshVoices();updateAudioButtons();}
+      sourceStates.set(manifest.path,'unavailable');
+    }finally{
+      clearTimeout(timeout);
+      const states=manifests.filter(item=>item.uri===manifest.uri).map(item=>sourceStates.get(item.path));
+      voiceLoadStatus.set(manifest.uri,voiceCardIds(manifest.uri,voiceData()).size?'ready':states.includes('loading')?'loading':states.includes('ready')?'ready':'unavailable');
+      refreshVoices();updateAudioButtons();
+    }
   })).finally(()=>{voiceManifestRequest=null;});
   return voiceManifestRequest;
 }

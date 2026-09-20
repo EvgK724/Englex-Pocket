@@ -9,6 +9,8 @@ export const VOICE_OPTIONS = Object.freeze([
 ]);
 export const CHONISHVILI_A_MANIFEST = 'fish-chonishvili-a-v1-index.json';
 export const ENGLEX_AI_MANIFEST = 'englex-ai-index.json';
+export const ENGLEX_RYAN_MANIFEST = 'englex-ryan-index.json';
+export const ENGLEX_RYAN_VOICE = 'en-GB-RyanNeural';
 export const SOFT_VOICE_MANIFEST = 'audio-index.json';
 
 export function migrateVoicePreference(raw) {
@@ -30,6 +32,14 @@ export function validateEnglexAIManifest(raw,validIds) {
   return records;
 }
 
+export function validateEnglexRyanManifest(raw,validIds) {
+  if(!raw||raw.version!==1||raw.provider!=='Microsoft Edge'||raw.source!=='generated'||raw.voice!==ENGLEX_RYAN_VOICE||
+      !Array.isArray(raw.cards)||raw.count!==raw.cards.length||
+      raw.cards.some(id=>typeof id!=='string'||!/^[a-f0-9]{20}$/.test(id)||!validIds.has(id))||
+      new Set(raw.cards).size!==raw.cards.length)return null;
+  return new Set(raw.cards);
+}
+
 export function validateChonishviliAManifest(raw,validIds) {
   if(!raw||raw.version!==1||raw.voiceId!=='089f2e853e064d6fb15f5b5882914b52'||
       raw.engine!=='s2.1-pro-free'||raw.profile!=='a-v1'||!Array.isArray(raw.cards)||
@@ -46,21 +56,28 @@ export function validateSoftVoiceManifest(raw,validIds) {
   return new Set(raw.cards);
 }
 
-export function voiceCardIds(voiceURI,{softIds=new Set(),chonishviliAIds=new Set(),englexRecordings=new Map()}={}) {
+export function voiceCardIds(voiceURI,{softIds=new Set(),chonishviliAIds=new Set(),englexRecordings=new Map(),englexRyanIds=new Set()}={}) {
   if(voiceURI===SOFT_VOICE_URI)return softIds;
   if(voiceURI===CHONISHVILI_A_VOICE_URI)return chonishviliAIds;
-  if(voiceURI===ENGLEX_AI_VOICE_URI)return new Set(englexRecordings.keys());
+  if(voiceURI===ENGLEX_AI_VOICE_URI)return new Set([...englexRecordings.keys(),...englexRyanIds]);
   return new Set();
 }
 
-export function recordingForVoice({cardId,voiceURI,softIds=new Set(),chonishviliAIds=new Set(),englexRecordings=new Map(),failedRecordings=new Set()}) {
+export function recordingForVoice({cardId,voiceURI,softIds=new Set(),chonishviliAIds=new Set(),englexRecordings=new Map(),englexRyanIds=new Set(),failedRecordings=new Set()}) {
   if(typeof cardId!=='string'||!/^[a-f0-9]{20}$/.test(cardId))return null;
-  const option=VOICE_OPTIONS.find(voice=>voice.uri===voiceURI),key=`${voiceURI}:${cardId}`;
-  if(!option||failedRecordings.has(key))return null;
-  let path=null;
+  const option=VOICE_OPTIONS.find(voice=>voice.uri===voiceURI);
+  if(!option)return null;
+  let path=null,key=`${voiceURI}:${cardId}`,label=option.label,source=null;
   if(voiceURI===SOFT_VOICE_URI&&softIds.has(cardId))path=`audio/${cardId}.mp3`;
   if(voiceURI===CHONISHVILI_A_VOICE_URI&&chonishviliAIds.has(cardId))path=`audio/fish-chonishvili-a-v1/${cardId}.mp3?v=a-v1`;
-  if(voiceURI===ENGLEX_AI_VOICE_URI)path=englexRecordings.get(cardId)||null;
+  if(voiceURI===ENGLEX_AI_VOICE_URI){
+    if(englexRecordings.has(cardId)){
+      path=englexRecordings.get(cardId);key=`${voiceURI}:original:${cardId}`;source='englex-ai';
+    }else if(englexRyanIds.has(cardId)){
+      path=`audio/englex-ryan/${cardId}.mp3?v=ryan-v1`;key=`${voiceURI}:generated:${cardId}`;
+      source='generated';label=`${option.label} · синтез Ryan`;
+    }
+  }
   // No voice substitutes for another: an absent record is genuinely unavailable.
-  return path?{path,key,label:option.label}:null;
+  return path&&!failedRecordings.has(key)?{path,key,label,source}:null;
 }

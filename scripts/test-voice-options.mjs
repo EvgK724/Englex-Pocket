@@ -5,7 +5,7 @@ import {test} from 'node:test';
 import {RecordedSpeech} from '../dist/recorded-speech.mjs';
 import {
   VOICE_OPTIONS,ENGLEX_AI_VOICE_URI,CHONISHVILI_A_VOICE_URI,SOFT_VOICE_URI,
-  migrateVoicePreference,validateEnglexAIManifest,validateChonishviliAManifest,validateSoftVoiceManifest,
+  migrateVoicePreference,validateEnglexAIManifest,validateEnglexRyanManifest,validateChonishviliAManifest,validateSoftVoiceManifest,ENGLEX_RYAN_VOICE,ENGLEX_RYAN_MANIFEST,
   voiceCardIds,recordingForVoice
 } from '../dist/voice-options.mjs';
 
@@ -36,6 +36,28 @@ test('Englex index accepts only dictionary IDs with their own local recording pa
   assert.equal(validateEnglexAIManifest({...manifest,recordings:{}},validIds).size,0);
 });
 
+test('Ryan supplement requires generated Microsoft Edge provenance, exact voice and complete known IDs',()=>{
+  const manifest={version:1,provider:'Microsoft Edge',source:'generated',voice:ENGLEX_RYAN_VOICE,count:2,cards:[a,b]};
+  assert.deepEqual([...validateEnglexRyanManifest(manifest,validIds)],[a,b]);
+  for(const change of [{provider:'Englex'},{source:'englex-ai'},{voice:'en-GB-SoniaNeural'},{count:1},{count:undefined},{cards:[a,a]},{cards:[a,c]},{cards:['../audio',b]},{version:2}])
+    assert.equal(validateEnglexRyanManifest({...manifest,...change},validIds),null);
+  assert.equal(validateEnglexRyanManifest({...manifest,count:0,cards:[]},validIds).size,0);
+});
+
+test('Englex coverage is the union, originals take priority and generated files never masquerade as originals',()=>{
+  const voices={...data,englexRecordings:new Map([[a,`audio/englex-ai/${a}.mp3`]]),englexRyanIds:new Set([a,b])};
+  assert.deepEqual([...voiceCardIds(ENGLEX_AI_VOICE_URI,voices)],[a,b]);
+  assert.equal(VOICE_OPTIONS.length,3);
+  const original=recordingForVoice({...voices,cardId:a,voiceURI:ENGLEX_AI_VOICE_URI});
+  const generated=recordingForVoice({...voices,cardId:b,voiceURI:ENGLEX_AI_VOICE_URI});
+  assert.equal(original.path,`audio/englex-ai/${a}.mp3`);assert.equal(original.source,'englex-ai');
+  assert.equal(generated.path,`audio/englex-ryan/${b}.mp3?v=ryan-v1`);assert.equal(generated.source,'generated');
+  assert.match(generated.label,/синтез Ryan/);
+  assert.equal(recordingForVoice({...voices,cardId:a,voiceURI:ENGLEX_AI_VOICE_URI,failedRecordings:new Set([original.key])}),null,'failed original is not silently exchanged for generated audio');
+  assert.equal(recordingForVoice({...voices,cardId:a,voiceURI:ENGLEX_AI_VOICE_URI,failedRecordings:new Set([`${ENGLEX_AI_VOICE_URI}:generated:${a}`])}).source,'englex-ai','an original added later is not blocked by a previous generated-recording failure');
+  assert.equal(recordingForVoice({...voices,cardId:b,voiceURI:SOFT_VOICE_URI}).path,`audio/${b}.mp3`,'other two choices keep their own voice');
+});
+
 test('A index cannot enable accepted or English trial audio, unknown IDs or paid engine data',()=>{
   const manifest={version:1,profile:'a-v1',voiceId:'089f2e853e064d6fb15f5b5882914b52',engine:'s2.1-pro-free',cards:[a]};
   assert.deepEqual([...validateChonishviliAManifest(manifest,validIds)],[a]);
@@ -62,7 +84,7 @@ async function uiContext(preferred=CHONISHVILI_A_VOICE_URI){
     if(!nodes.has(id))nodes.set(id,{textContent:'',hidden:false,disabled:false,options:[],attrs:new Map(),replaceChildren(...options){this.options=options;},getAttribute(key){return this.attrs.get(key);},setAttribute(key,value){this.attrs.set(key,value);},removeAttribute(key){this.attrs.delete(key);}});
     return nodes.get(id);
   };
-  const context={state:{voiceURI:preferred,cards:[{id:a},{id:b}],rate:.9},audioIds:new Set([a,b]),chonishviliAIds:new Set(),englexRecordings:new Map(),voiceLoadStatus:new Map(),failedRecordings:new Set(),VOICE_OPTIONS,ENGLEX_AI_VOICE_URI,CHONISHVILI_A_VOICE_URI,SOFT_VOICE_URI,voiceCardIds,recordingForVoice,
+  const context={state:{voiceURI:preferred,cards:[{id:a},{id:b}],rate:.9},audioIds:new Set([a,b]),chonishviliAIds:new Set(),englexRecordings:new Map(),englexRyanIds:new Set(),voiceLoadStatus:new Map(),failedRecordings:new Set(),VOICE_OPTIONS,ENGLEX_AI_VOICE_URI,CHONISHVILI_A_VOICE_URI,SOFT_VOICE_URI,voiceCardIds,recordingForVoice,
     byId:new Map([[a,{id:a,word:'First recording'}],[b,{id:b,word:'Current phrase'}]]),current:()=>({id:b,word:'Current phrase'}),$:node,Option:function(label,value){this.label=label;this.value=value;},assetUrl:path=>path,speechText:word=>word,
     save(){this.savedURI=this.state.voiceURI;},recordedSpeech:{stop(){},play(path,callbacks){context.played=path;context.playbackCallbacks=callbacks;}}
   };
@@ -90,6 +112,22 @@ test('both menus always expose exactly three choices, including a selected voice
   assert.equal(node('speak-front').disabled,false);
   assert.equal(node('voice-select').value,SOFT_VOICE_URI);
   assert.equal(node('card-voice-select').value,SOFT_VOICE_URI);
+});
+
+test('same Englex choice clearly identifies original and generated recordings on the card and preview',async()=>{
+  const {context,node}=await uiContext(ENGLEX_AI_VOICE_URI);
+  context.englexRecordings.set(a,`audio/englex-ai/${a}.mp3`);context.englexRyanIds.add(a);context.englexRyanIds.add(b);
+  runInNewContext('refreshVoices();updateAudioButtons();',context);
+  assert.equal(node('card-voice-select').options.length,3);
+  assert.equal(node('card-voice-select').value,ENGLEX_AI_VOICE_URI);
+  assert.match(node('card-voice-note').textContent,/2 из 2/);
+  assert.match(node('card-voice-note').textContent,/синтез Ryan \(Microsoft Edge\)/);
+  assert.match(node('voice-test-note').textContent,/Current phrase · синтез Ryan/);
+  assert.match(node('englex-voice-provenance').textContent,/1 оригинальных.*1 дополнительных/);
+  context.englexRecordings.set(b,`audio/englex-ai/${b}.mp3`);
+  runInNewContext('refreshVoices();updateAudioButtons();',context);
+  assert.match(node('card-voice-note').textContent,/Оригинальная запись Englex/);
+  assert.match(node('englex-voice-provenance').textContent,/2 оригинальных.*0 дополнительных/);
 });
 
 test('play starts synchronously from the click handler and failure never plays another voice',async()=>{
@@ -172,12 +210,29 @@ test('soft manifest verifies provider, complete count and dictionary IDs while p
 test('soft audio refresh enables new recordings and rejects stale smaller indexes',async()=>{
   const app=await readFile(new URL('../dist/app.js',import.meta.url),'utf8');
   let manifest={version:1,provider:'AI Voice Generator',voice:'delicate',count:2,cards:[a,b]};
-  const context={audioIds:new Set([a]),chonishviliAIds:new Set(),englexRecordings:new Map(),voiceLoadStatus:new Map([[SOFT_VOICE_URI,'ready']]),byId:new Map([[a,{}],[b,{}]]),SOFT_VOICE_URI,SOFT_VOICE_MANIFEST:'audio-index.json',CHONISHVILI_A_VOICE_URI,CHONISHVILI_A_MANIFEST:'a-index.json',ENGLEX_AI_VOICE_URI,ENGLEX_AI_MANIFEST:'englex-index.json',validateSoftVoiceManifest,validateChonishviliAManifest,validateEnglexAIManifest,voiceCardIds,assetUrl:path=>path,AbortController,setTimeout,clearTimeout,refreshVoices(){},updateAudioButtons(){},fetch:async path=>({ok:true,json:async()=>path.startsWith('audio-index')?manifest:null})};
-  context.voiceData=()=>({softIds:context.audioIds,chonishviliAIds:context.chonishviliAIds,englexRecordings:context.englexRecordings});
+  const context={audioIds:new Set([a]),chonishviliAIds:new Set(),englexRecordings:new Map(),englexRyanIds:new Set(),voiceLoadStatus:new Map([[SOFT_VOICE_URI,'ready']]),byId:new Map([[a,{}],[b,{}]]),SOFT_VOICE_URI,SOFT_VOICE_MANIFEST:'audio-index.json',CHONISHVILI_A_VOICE_URI,CHONISHVILI_A_MANIFEST:'a-index.json',ENGLEX_AI_VOICE_URI,ENGLEX_AI_MANIFEST:'englex-index.json',ENGLEX_RYAN_MANIFEST,validateEnglexRyanManifest,validateSoftVoiceManifest,validateChonishviliAManifest,validateEnglexAIManifest,voiceCardIds,assetUrl:path=>path,AbortController,setTimeout,clearTimeout,refreshVoices(){},updateAudioButtons(){},fetch:async path=>({ok:true,json:async()=>path.startsWith('audio-index')?manifest:null})};
+  context.voiceData=()=>({softIds:context.audioIds,chonishviliAIds:context.chonishviliAIds,englexRecordings:context.englexRecordings,englexRyanIds:context.englexRyanIds});
   runInNewContext(app.slice(app.indexOf('let voiceManifestRequest=null;'),app.indexOf('function refreshCollection(')),context);
   await runInNewContext('refreshVoiceManifests()',context);
   assert.deepEqual([...context.audioIds],[a,b]);
   manifest={...manifest,count:1,cards:[a]};
   await runInNewContext('refreshVoiceManifests()',context);
   assert.deepEqual([...context.audioIds],[a,b],'old CDN response must not remove the new recording');
+});
+
+test('original and generated manifests grow independently and stale replies cannot reduce either source',async()=>{
+  const app=await readFile(new URL('../dist/app.js',import.meta.url),'utf8');
+  let original={version:1,source:'englex-ai',recordings:{[a]:`audio/englex-ai/${a}.mp3`,[c]:`audio/englex-ai/${c}.mp3`}};
+  let generated={version:1,provider:'Microsoft Edge',source:'generated',voice:ENGLEX_RYAN_VOICE,count:2,cards:[a,b]};
+  const context={audioIds:new Set(),chonishviliAIds:new Set(),englexRecordings:new Map([[a,`audio/englex-ai/${a}.mp3`]]),englexRyanIds:new Set([b]),voiceLoadStatus:new Map([[ENGLEX_AI_VOICE_URI,'ready']]),byId:new Map([[a,{}],[b,{}],[c,{}]]),SOFT_VOICE_URI,SOFT_VOICE_MANIFEST:'audio-index.json',CHONISHVILI_A_VOICE_URI,CHONISHVILI_A_MANIFEST:'a-index.json',ENGLEX_AI_VOICE_URI,ENGLEX_AI_MANIFEST:'englex-index.json',ENGLEX_RYAN_MANIFEST,validateEnglexRyanManifest,validateSoftVoiceManifest,validateChonishviliAManifest,validateEnglexAIManifest,voiceCardIds,assetUrl:path=>path,AbortController,setTimeout,clearTimeout,refreshVoices(){},updateAudioButtons(){},fetch:async path=>({ok:true,json:async()=>path.startsWith('englex-index')?original:path.startsWith(ENGLEX_RYAN_MANIFEST)?generated:null})};
+  context.voiceData=()=>({softIds:context.audioIds,chonishviliAIds:context.chonishviliAIds,englexRecordings:context.englexRecordings,englexRyanIds:context.englexRyanIds});
+  runInNewContext(app.slice(app.indexOf('let voiceManifestRequest=null;'),app.indexOf('function refreshCollection(')),context);
+  await runInNewContext('refreshVoiceManifests()',context);
+  assert.deepEqual([...context.englexRecordings.keys()],[a,c]);
+  assert.deepEqual([...context.englexRyanIds],[a,b]);
+  assert.equal(voiceCardIds(ENGLEX_AI_VOICE_URI,context.voiceData()).size,3,'source-specific stale checks must not compare a partial source with the union');
+  original={...original,recordings:{[a]:`audio/englex-ai/${a}.mp3`}};generated={...generated,count:1,cards:[b]};
+  await runInNewContext('refreshVoiceManifests()',context);
+  assert.deepEqual([...context.englexRecordings.keys()],[a,c]);assert.deepEqual([...context.englexRyanIds],[a,b]);
+  assert.equal(context.voiceLoadStatus.get(ENGLEX_AI_VOICE_URI),'ready');
 });
