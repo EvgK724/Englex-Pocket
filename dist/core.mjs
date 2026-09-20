@@ -7,15 +7,28 @@ export function speechText(text) {
 }
 
 export function selectCards(cards, state) {
-  const tokens = normalizeText(state.query).split(' ').filter(Boolean);
+  const query = normalizeText(state.query);
+  const tokens = query.split(' ').filter(Boolean);
   const result = cards.filter(c =>
     (state.kind === 'all' || c.kind === state.kind) &&
     (state.deck !== 'starred' || state.stars.has(c.id)) &&
     (state.deck !== 'review' || state.ratings[c.id] === 'review') &&
     tokens.every(t => c.search.includes(t))
   );
-  if (state.sort === 'alphabetical') result.sort((a, b) => a.word.localeCompare(b.word, 'en') || a.order - b.order);
-  else result.sort((a, b) => (state.sort === 'oldest' ? a.added.localeCompare(b.added) : b.added.localeCompare(a.added)) || a.order - b.order);
+  const compare = state.sort === 'alphabetical'
+    ? (a, b) => a.word.localeCompare(b.word, 'en') || a.order - b.order
+    : (a, b) => (state.sort === 'oldest' ? a.added.localeCompare(b.added) : b.added.localeCompare(a.added)) || a.order - b.order;
+  if (!tokens.length) return result.sort(compare);
+  // List names stay searchable, but must not bury the word being studied.
+  // Compute relevance once per match, then retain the selected sort within each tier.
+  const relevance = new Map(result.map(card => {
+    const english = normalizeText(card.word);
+    if (english === query) return [card, 0];
+    if (tokens.every(token => english.includes(token))) return [card, 1];
+    const translation = normalizeText(card.translation);
+    return [card, tokens.every(token => english.includes(token) || translation.includes(token)) ? 2 : 3];
+  }));
+  result.sort((a, b) => relevance.get(a) - relevance.get(b) || compare(a, b));
   return result;
 }
 

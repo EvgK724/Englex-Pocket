@@ -15,7 +15,8 @@
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./nocturne.css">
   <link rel="stylesheet" href="./phone.css">
-  <script type="module" src="./app.js?v=choni-clean-1"></script>
+  <link rel="stylesheet" href="./comfort.css?v=ux-comfort-1">
+  <script type="module" src="./app.js?v=ux-comfort-1"></script>
 </head>
 <body>
   <a class="skip-link" href="#study">К карточке</a>
@@ -59,7 +60,14 @@
               </div>
             </div>
           </article>
-          <div class="card-voice"><label for="card-voice-select">Голос для карточек</label><select id="card-voice-select" aria-describedby="card-voice-note"><option value="englex-ai" selected>Ryan</option><option value="fish:089f2e853e064d6fb15f5b5882914b52:a-v1">Choni</option><option value="auto">Doris</option></select><p id="card-voice-note">Выбранный голос сохраняется для всей коллекции.</p></div>
+          <div class="card-voice">
+            <div id="card-voice-buttons" class="voice-segments" role="group" aria-label="Голос для карточек" aria-describedby="card-voice-note">
+              <button type="button" data-card-voice="englex-ai" aria-pressed="true">Ryan</button>
+              <button type="button" data-card-voice="fish:089f2e853e064d6fb15f5b5882914b52:a-v1" aria-pressed="false">Choni</button>
+              <button type="button" data-card-voice="auto" aria-pressed="false">Doris</button>
+            </div>
+            <p id="card-voice-note">Выбранный голос сохраняется для всей коллекции.</p>
+          </div>
           <div class="flip-row"><button id="flip" class="flip-button" aria-controls="flashcard" aria-pressed="false"><span data-icon="rotate"></span><span id="flip-label">Показать перевод</span><kbd>пробел</kbd></button></div>
           <div class="rating-row" id="rating-row"><button id="mark-review" class="review-button"><span data-icon="repeat"></span>Повторить</button><button id="mark-known" class="known-button"><span data-icon="check"></span>Знаю</button></div>
           <nav class="card-navigation" aria-label="Переключение карточек"><button id="previous" class="icon-button" aria-label="Предыдущая карточка"><span data-icon="left"></span></button><span id="progress-note">Сначала вспомните значение</span><button id="next" class="icon-button" aria-label="Следующая карточка"><span data-icon="right"></span></button></nav>

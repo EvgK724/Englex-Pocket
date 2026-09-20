@@ -31,15 +31,26 @@ test('Ryan default migrates old preferences once and retains every later explici
   assert.deepEqual(progress,before,'migration must not mutate learning progress');
 });
 
-test('primary menus and runtime labels are exactly Ryan, Choni and Doris with Ryan initially selected',async()=>{
+test('card buttons and settings menu expose exactly Ryan, Choni and Doris with Ryan initially selected',async()=>{
   assert.deepEqual(VOICE_OPTIONS.map(voice=>voice.label),['Ryan','Choni','Doris']);
   const html=await readFile(new URL('../dist/index.html',import.meta.url),'utf8');
-  const menus=[...html.matchAll(/<select id="(voice-select|card-voice-select)"[^>]*>([\s\S]*?)<\/select>/g)];
-  assert.equal(menus.length,2);
+  const menus=[...html.matchAll(/<select id="(voice-select)"[^>]*>([\s\S]*?)<\/select>/g)];
+  assert.equal(menus.length,1);
   for(const [,id,markup] of menus){
     assert.deepEqual([...markup.matchAll(/<option[^>]*>([^<]+)<\/option>/g)].map(match=>match[1]),['Ryan','Choni','Doris'],id);
     assert.match(markup,/<option value="englex-ai" selected>Ryan<\/option>/);
     assert.equal((markup.match(/\bselected\b/g)||[]).length,1);
+  }
+  assert.doesNotMatch(html,/id="card-voice-select"/);
+  const group=html.match(/<[^>]+id="card-voice-buttons"[^>]*>/)?.[0];
+  assert.ok(group,'card voice controls have a labelled group');
+  assert.match(group,/role="group"/);
+  assert.match(group,/aria-label="Голос для карточек"/);
+  const buttons=[...html.matchAll(/<button\b([^>]*\bdata-card-voice="([^"]+)"[^>]*)>([^<]+)<\/button>/g)];
+  assert.deepEqual(buttons.map(match=>[match[2],match[3]]),VOICE_OPTIONS.map(voice=>[voice.uri,voice.label]));
+  for(const [,attributes,uri] of buttons){
+    assert.match(attributes,/type="button"/);
+    assert.match(attributes,new RegExp(`aria-pressed="${uri===ENGLEX_AI_VOICE_URI}"`));
   }
   const app=await readFile(new URL('../dist/app.js',import.meta.url),'utf8');
   const source=app.slice(app.indexOf('const state='),app.indexOf('let byId='));
@@ -51,7 +62,7 @@ test('actual progress load/save records the one-time Ryan migration without rese
   const app=await readFile(new URL('../dist/app.js',import.meta.url),'utf8');
   const original={version:1,recordedVoiceVersion:2,voiceURI:CHONISHVILI_A_VOICE_URI,stars:[a],ratings:{[a]:'review',[b]:'known'},currentId:b,rate:1.05,kind:'phrasal',sort:'alphabetical'};
   let stored=JSON.stringify(original);
-  const context={state:{stars:new Set(),ratings:{},voiceURI:ENGLEX_AI_VOICE_URI},currentId:null,byId:new Map([[a,{id:a}],[b,{id:b}]]),STORAGE_KEY:'englex-pocket-v1',VOICE_PREFERENCE_VERSION,VOICE_OPTIONS,ENGLEX_AI_VOICE_URI,CHONISHVILI_A_VOICE_URI,SOFT_VOICE_URI,migrateVoicePreference,sanitizeProgress,storageWarning:false,toast:()=>assert.fail('valid progress should load'),resetSpeech(){},localStorage:{getItem:()=>stored,setItem:(key,value)=>{assert.equal(key,'englex-pocket-v1');stored=value;}}};
+  const context={state:{stars:new Set(),ratings:{},voiceURI:ENGLEX_AI_VOICE_URI},searchBookmark:null,currentId:null,byId:new Map([[a,{id:a}],[b,{id:b}]]),STORAGE_KEY:'englex-pocket-v1',VOICE_PREFERENCE_VERSION,VOICE_OPTIONS,ENGLEX_AI_VOICE_URI,CHONISHVILI_A_VOICE_URI,SOFT_VOICE_URI,migrateVoicePreference,sanitizeProgress,storageWarning:false,toast:()=>assert.fail('valid progress should load'),resetSpeech(){},localStorage:{getItem:()=>stored,setItem:(key,value)=>{assert.equal(key,'englex-pocket-v1');stored=value;}}};
   context.current=()=>context.byId.get(context.currentId)||null;
   runInNewContext(app.slice(app.indexOf('function progress(){'),app.indexOf('function updateCounts(){')),context);
   runInNewContext(app.slice(app.indexOf('function selectVoice(value){'),app.indexOf('function updateAudioButtons(){')),context);
@@ -153,25 +164,35 @@ async function uiContext(preferred=ENGLEX_AI_VOICE_URI){
   const app=await readFile(new URL('../dist/app.js',import.meta.url),'utf8');
   const nodes=new Map();
   const node=id=>{
-    if(!nodes.has(id))nodes.set(id,{textContent:'',hidden:false,disabled:false,options:[],attrs:new Map(),replaceChildren(...options){this.options=options;},getAttribute(key){return this.attrs.get(key);},setAttribute(key,value){this.attrs.set(key,value);},removeAttribute(key){this.attrs.delete(key);}});
+    if(!nodes.has(id))nodes.set(id,{textContent:'',hidden:false,disabled:false,options:[],dataset:{},attrs:new Map(),listeners:new Map(),replaceChildren(...options){this.options=options;},getAttribute(key){return this.attrs.get(key);},setAttribute(key,value){this.attrs.set(key,String(value));},removeAttribute(key){this.attrs.delete(key);},addEventListener(type,handler){if(!this.listeners.has(type))this.listeners.set(type,[]);this.listeners.get(type).push(handler);},dispatch(type){for(const handler of this.listeners.get(type)||[])handler({target:this,currentTarget:this});},click(){this.dispatch('click');}});
     return nodes.get(id);
   };
+  const voiceButtons=VOICE_OPTIONS.map(voice=>Object.assign(node(`voice-button:${voice.uri}`),{dataset:{cardVoice:voice.uri},textContent:voice.label}));
+  const document={activeElement:null,querySelectorAll:selector=>selector==='[data-card-voice]'?voiceButtons:[],addEventListener(){}};
+  for(const button of voiceButtons)button.focus=()=>{document.activeElement=button;};
+  node('card-voice-buttons').querySelectorAll=selector=>selector==='[data-card-voice]'?voiceButtons:[];
   const context={state:{voiceURI:preferred,cards:[{id:a},{id:b}],rate:.9},audioIds:new Set([a,b]),chonishviliAIds:new Set(),chonishviliCleanIds:new Set(),englexRecordings:new Map(),englexRyanIds:new Set(),voiceLoadStatus:new Map(),failedRecordings:new Set(),VOICE_OPTIONS,ENGLEX_AI_VOICE_URI,CHONISHVILI_A_VOICE_URI,SOFT_VOICE_URI,voiceCardIds,recordingForVoice,
-    byId:new Map([[a,{id:a,word:'First recording'}],[b,{id:b,word:'Current phrase'}]]),current:()=>({id:b,word:'Current phrase'}),$:node,Option:function(label,value){this.label=label;this.value=value;},assetUrl:path=>path,speechText:word=>word,
+    byId:new Map([[a,{id:a,word:'First recording'}],[b,{id:b,word:'Current phrase'}]]),current:()=>({id:b,word:'Current phrase'}),$:node,document,Option:function(label,value){this.label=label;this.value=value;},assetUrl:path=>path,speechText:word=>word,
     save(){this.savedURI=this.state.voiceURI;},recordedSpeech:{stop(){},play(path,callbacks){context.played=path;context.playbackCallbacks=callbacks;}}
   };
   context.save=()=>{context.savedURI=context.state.voiceURI;};
   runInNewContext(app.slice(app.indexOf('function voiceData(){'),app.indexOf('function bindEvents(){')),context);
-  return {context,node};
+  return {context,node,voiceButtons,app};
 }
 
-test('both menus always expose exactly three choices, including a selected voice with pending audio',async()=>{
-  const {context,node}=await uiContext(CHONISHVILI_A_VOICE_URI);
+function assertVoiceSelection(context,node,voiceButtons,selected){
+  assert.deepEqual(node('voice-select').options.map(option=>option.value),VOICE_OPTIONS.map(voice=>voice.uri));
+  assert.deepEqual(voiceButtons.map(button=>button.dataset.cardVoice),VOICE_OPTIONS.map(voice=>voice.uri));
+  assert.equal(node('voice-select').value,selected);
+  assert.equal(context.state.voiceURI,selected);
+  assert.equal(voiceButtons.filter(button=>button.getAttribute('aria-pressed')==='true').length,1,'one active card voice');
+  for(const button of voiceButtons)assert.equal(button.getAttribute('aria-pressed'),String(button.dataset.cardVoice===selected));
+}
+
+test('both controls always expose exactly three choices, including a selected voice with pending audio',async()=>{
+  const {context,node,voiceButtons}=await uiContext(CHONISHVILI_A_VOICE_URI);
   runInNewContext('refreshVoices();updateAudioButtons();',context);
-  for(const id of ['voice-select','card-voice-select']){
-    assert.deepEqual(node(id).options.map(option=>option.value),VOICE_OPTIONS.map(voice=>voice.uri));
-    assert.equal(node(id).value,CHONISHVILI_A_VOICE_URI);
-  }
+  assertVoiceSelection(context,node,voiceButtons,CHONISHVILI_A_VOICE_URI);
   assert.equal(node('speak-front').disabled,true);
   assert.equal(node('test-voice').disabled,true);
   context.chonishviliAIds.add(a);
@@ -182,17 +203,40 @@ test('both menus always expose exactly three choices, including a selected voice
   runInNewContext('selectVoice(SOFT_VOICE_URI);',context);
   assert.equal(context.savedURI,SOFT_VOICE_URI);
   assert.equal(node('speak-front').disabled,false);
-  assert.equal(node('voice-select').value,SOFT_VOICE_URI);
-  assert.equal(node('card-voice-select').value,SOFT_VOICE_URI);
+  assertVoiceSelection(context,node,voiceButtons,SOFT_VOICE_URI);
+});
+
+test('card button clicks and settings changes sync both controls, keep focus, and save all learning state',async()=>{
+  const {context,node,voiceButtons,app}=await uiContext();
+  const original={version:1,recordedVoiceVersion:VOICE_PREFERENCE_VERSION,voiceURI:ENGLEX_AI_VOICE_URI,stars:[a],ratings:{[a]:'review',[b]:'known'},currentId:a,rate:1.05,kind:'phrasal',sort:'alphabetical'};
+  let stored=JSON.stringify(original);
+  Object.assign(context,{searchBookmark:{id:a},currentId:b,STORAGE_KEY:'englex-pocket-v1',VOICE_PREFERENCE_VERSION,migrateVoicePreference,sanitizeProgress,storageWarning:false,toast:()=>assert.fail('valid progress should save'),navigator:{userAgent:'test desktop'},toggleStar(){},openCollection(){},closeCollection(){},localStorage:{getItem:()=>stored,setItem:(key,value)=>{assert.equal(key,'englex-pocket-v1');stored=value;}}});
+  Object.assign(context.state,{stars:new Set(original.stars),ratings:{...original.ratings},rate:original.rate,kind:original.kind,sort:original.sort});
+  runInNewContext(app.slice(app.indexOf('function progress(){'),app.indexOf('function updateCounts(){')),context);
+  runInNewContext(app.slice(app.indexOf('function bindEvents(){'),app.indexOf('\nbindEvents();')),context);
+  runInNewContext('bindEvents();refreshVoices();updateAudioButtons();',context);
+  const stableButtons=[...voiceButtons];
+  for(const button of voiceButtons){
+    button.focus();button.click();
+    assertVoiceSelection(context,node,voiceButtons,button.dataset.cardVoice);
+    assert.equal(context.document.activeElement,button,'refresh leaves the clicked button focused');
+    assert.deepEqual(JSON.parse(stored),{...original,voiceURI:button.dataset.cardVoice},'voice selection preserves bookmark, stars, ratings, rate and filters');
+  }
+  for(const voice of [...VOICE_OPTIONS].reverse()){
+    node('voice-select').value=voice.uri;node('voice-select').dispatch('change');
+    assertVoiceSelection(context,node,voiceButtons,voice.uri);
+    assert.deepEqual(JSON.parse(stored),{...original,voiceURI:voice.uri});
+  }
+  assert.deepEqual(context.document.querySelectorAll('[data-card-voice]'),stableButtons,'refresh never replaces the buttons');
 });
 
 test('card readiness stays concise while Settings and previews preserve original and generated provenance',async()=>{
-  const {context,node}=await uiContext(ENGLEX_AI_VOICE_URI);
+  const {context,node,voiceButtons}=await uiContext(ENGLEX_AI_VOICE_URI);
   context.englexRecordings.set(a,`audio/englex-ai/${a}.mp3`);context.englexRyanIds.add(a);context.englexRyanIds.add(b);
   runInNewContext('refreshVoices();updateAudioButtons();',context);
-  assert.equal(node('card-voice-select').options.length,3);
-  assert.equal(node('card-voice-select').value,ENGLEX_AI_VOICE_URI);
+  assertVoiceSelection(context,node,voiceButtons,ENGLEX_AI_VOICE_URI);
   assert.equal(node('card-voice-note').textContent,'Выбран для всей коллекции.');
+  assert.equal(node('card-voice-note').hidden,true,'normal readiness does not take vertical card space');
   assert.match(node('voice-test-note').textContent,/Current phrase · синтез Ryan/);
   assert.match(node('englex-voice-provenance').textContent,/1 оригинальных.*1 дополнительных/);
   context.englexRecordings.set(b,`audio/englex-ai/${b}.mp3`);
@@ -260,12 +304,14 @@ test('cleaned recording failure offers an honest original Choni retry in a new c
   assert.equal(node('speak-front').disabled,false,'same Choni original is ready for a user retry');
   assert.match(node('audio-status').textContent,/Нажмите на динамик.*исходную запись Choni/);
   assert.match(node('card-voice-note').textContent,/Очищенная запись не загрузилась.*исходную/);
+  assert.equal(node('card-voice-note').hidden,false,'fallback warning remains visible');
   runInNewContext('pronounce(current(),$("speak-front"));',context);
   assert.match(media[1].src,/audio\/fish-chonishvili-a-v1\//);
   media[1].onplaying();assert.match(node('audio-status').textContent,/Choni: Current phrase · исходная запись/);
   media[1].onerror();
   assert.equal(node('speak-front').disabled,true,'failed original is unavailable until reset');
   assert.match(node('card-voice-note').textContent,/Перезапустить звук/);
+  assert.equal(node('card-voice-note').hidden,false,'audio failure remains visible');
   runInNewContext('resetSpeech();pronounce(current(),$("speak-front"));',context);
   assert.equal(node('speak-front').getAttribute('aria-busy'),'true');
   assert.match(media[2].src,/audio\/fish-chonishvili-a-clean-v1\//);
