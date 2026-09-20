@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0c0f16">
-  <title>Английский AI — образец · Englex Pocket</title>
+  <title>Microsoft Ryan — образец Englex AI · Englex Pocket</title>
   <style>
     :root { color-scheme: dark; font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif; background:#0c0f16; color:#d8d6d0; }
     * { box-sizing:border-box; }
@@ -25,13 +25,13 @@
 <body>
 <main>
   <a href="./">← К карточкам Englex Pocket</a>
-  <h1>Английский голос для недостающих записей</h1>
-  <p class="intro">Это образец возможного дополнения к Englex AI. Тембр отличается от оригинала Englex; образец пока не добавлен к карточкам.</p>
+  <h1>Голос Microsoft Ryan</h1>
+  <p class="intro">Этот британский мужской голос указан в публичном коде Englex. Ниже — новый синтез Ryan и исходная запись Englex. Совпадение текущего серверного голоса ещё проверяется; массовое дополнение карточек пока не запущено.</p>
   <section aria-labelledby="generated-title">
-    <h2 id="generated-title">Сгенерированный английский AI</h2>
-    <p class="phrase" lang="en">Recover. Recovery period. A speedy recovery.</p>
-    <audio controls preload="metadata" aria-label="Послушать сгенерированный английский AI" src="./audio/previews/english-ai-clear.mp3"></audio>
-    <p class="hint">AI Voice Generator · clear. Полная запись трёх выражений.</p>
+    <h2 id="generated-title">Microsoft Ryan · прямой синтез</h2>
+    <p class="phrase" lang="en">This is an audio connection test, spoken in a calm British voice.</p>
+    <audio controls preload="metadata" aria-label="Послушать Microsoft Ryan" src="./audio/previews/englex-microsoft-ryan.mp3"></audio>
+    <p class="hint">Microsoft Edge TTS · en-GB-RyanNeural. Обычные скорость и высота голоса. Эта тестовая фраза создана отдельно от личного словаря.</p>
   </section>
   <section aria-labelledby="original-title">
     <h2 id="original-title">Оригинальный Englex AI</h2>
@@ -39,6 +39,7 @@
     <audio id="original" controls preload="metadata" aria-label="Послушать оригинал Englex AI — recovery period" src="./audio/englex-ai/5e077aaae4a0096b38f9.mp3"></audio>
     <p class="hint">Запись из личного словаря Englex для сравнения.</p>
   </section>
+<p class="hint">Источник: <a href="https://class.englex.ru/assets/vendor.localforage+vendor.englex-trainer-BmCG9Kdx.js" target="_blank" rel="noopener">публичный TTS-модуль Englex</a>. Настройка клиентского синтезатора не раскрывает конфигурацию сервера.</p>
 </main>
 <script>document.querySelectorAll('audio').forEach(audio=>audio.addEventListener('play',()=>{document.querySelectorAll('audio').forEach(other=>{if(other!==audio)other.pause();});}));</script>
 </body>
