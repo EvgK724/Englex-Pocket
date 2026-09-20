@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0c0f16">
+  <title>Английский AI — образец · Englex Pocket</title>
+  <style>
+    :root { color-scheme: dark; font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif; background:#0c0f16; color:#d8d6d0; }
+    * { box-sizing:border-box; }
+    body { margin:0; padding:32px max(20px,env(safe-area-inset-right)) 48px; }
+    main { max-width:650px; margin:0 auto; }
+    a { color:#8dbdff; text-underline-offset:4px; display:inline-block; padding:12px 0; }
+    a:focus-visible,audio:focus-visible { outline:3px solid #8dbdff; outline-offset:5px; }
+    h1 { font-size:clamp(30px,7vw,40px); line-height:1.15; letter-spacing:-.025em; margin:28px 0 16px; }
+    h2 { font-size:24px; margin:0 0 10px; }
+    p { font-size:18px; line-height:1.55; margin:12px 0; }
+    .hint { color:#b7bac2; }
+    section { border-top:1px solid #485264; padding:28px 0; }
+    .phrase { font-size:22px; color:#e4e4e0; }
+    audio { width:100%; margin:16px 0 0; min-height:54px; }
+    .intro { margin-bottom:30px; }
+  </style>
+</head>
+<body>
+<main>
+  <a href="./">← К карточкам Englex Pocket</a>
+  <h1>Английский голос для недостающих записей</h1>
+  <p class="intro">Это образец возможного дополнения к Englex AI. Тембр отличается от оригинала Englex; образец пока не добавлен к карточкам.</p>
+  <section aria-labelledby="generated-title">
+    <h2 id="generated-title">Сгенерированный английский AI</h2>
+    <p class="phrase" lang="en">Recover. Recovery period. A speedy recovery.</p>
+    <audio controls preload="metadata" aria-label="Послушать сгенерированный английский AI" src="./audio/previews/english-ai-clear.mp3"></audio>
+    <p class="hint">AI Voice Generator · clear. Полная запись трёх выражений.</p>
+  </section>
+  <section aria-labelledby="original-title">
+    <h2 id="original-title">Оригинальный Englex AI</h2>
+    <p class="phrase" lang="en">Recovery period</p>
+    <audio id="original" controls preload="metadata" aria-label="Послушать оригинал Englex AI — recovery period" src="./audio/englex-ai/5e077aaae4a0096b38f9.mp3"></audio>
+    <p class="hint">Запись из личного словаря Englex для сравнения.</p>
+  </section>
+</main>
+<script>document.querySelectorAll('audio').forEach(audio=>audio.addEventListener('play',()=>{document.querySelectorAll('audio').forEach(other=>{if(other!==audio)other.pause();});}));</script>
+</body>
+</html>

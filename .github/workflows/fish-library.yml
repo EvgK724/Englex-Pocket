@@ -31,10 +31,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: fish-voice-recordings
-  cancel-in-progress: false
-
 jobs:
   plan:
     runs-on: ubuntu-latest
@@ -54,6 +50,11 @@ jobs:
   prepare:
     needs: plan
     if: needs.plan.outputs.needed == 'true'
+    # Filter no-op pushes before taking the generation lock; otherwise unrelated
+    # app/audio publications can replace a queued dictionary continuation.
+    concurrency:
+      group: fish-voice-recordings
+      cancel-in-progress: false
     strategy:
       fail-fast: false
       max-parallel: 1

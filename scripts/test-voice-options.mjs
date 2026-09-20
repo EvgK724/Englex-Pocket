@@ -5,7 +5,7 @@ import {test} from 'node:test';
 import {RecordedSpeech} from '../dist/recorded-speech.mjs';
 import {
   VOICE_OPTIONS,ENGLEX_AI_VOICE_URI,CHONISHVILI_A_VOICE_URI,SOFT_VOICE_URI,
-  migrateVoicePreference,validateEnglexAIManifest,validateChonishviliAManifest,
+  migrateVoicePreference,validateEnglexAIManifest,validateChonishviliAManifest,validateSoftVoiceManifest,
   voiceCardIds,recordingForVoice
 } from '../dist/voice-options.mjs';
 
@@ -156,4 +156,28 @@ test('late failure from a stopped card cannot clear busy state or disable a new 
   media[1].onended();
   assert.equal(node('speak-front').getAttribute('aria-busy'),undefined);
   assert.equal(node('speak-front').disabled,false);
+});
+
+
+
+test('soft manifest verifies provider, complete count and dictionary IDs while preserving existing voice overrides',()=>{
+  const manifest={version:1,provider:'AI Voice Generator',voice:'delicate',count:2,cards:[a,b],voiceOverrides:{[a]:{voice:'childlike-robot-trial-v1'}}};
+  const before=structuredClone(manifest);
+  assert.deepEqual([...validateSoftVoiceManifest(manifest,validIds)],[a,b]);
+  assert.deepEqual(manifest,before);
+  for(const changed of [{count:3},{cards:[a,a]},{cards:[a,c]},{voice:'clear'},{provider:'Englex'}])
+    assert.equal(validateSoftVoiceManifest({...manifest,...changed},validIds),null);
+});
+
+test('soft audio refresh enables new recordings and rejects stale smaller indexes',async()=>{
+  const app=await readFile(new URL('../dist/app.js',import.meta.url),'utf8');
+  let manifest={version:1,provider:'AI Voice Generator',voice:'delicate',count:2,cards:[a,b]};
+  const context={audioIds:new Set([a]),chonishviliAIds:new Set(),englexRecordings:new Map(),voiceLoadStatus:new Map([[SOFT_VOICE_URI,'ready']]),byId:new Map([[a,{}],[b,{}]]),SOFT_VOICE_URI,SOFT_VOICE_MANIFEST:'audio-index.json',CHONISHVILI_A_VOICE_URI,CHONISHVILI_A_MANIFEST:'a-index.json',ENGLEX_AI_VOICE_URI,ENGLEX_AI_MANIFEST:'englex-index.json',validateSoftVoiceManifest,validateChonishviliAManifest,validateEnglexAIManifest,voiceCardIds,assetUrl:path=>path,AbortController,setTimeout,clearTimeout,refreshVoices(){},updateAudioButtons(){},fetch:async path=>({ok:true,json:async()=>path.startsWith('audio-index')?manifest:null})};
+  context.voiceData=()=>({softIds:context.audioIds,chonishviliAIds:context.chonishviliAIds,englexRecordings:context.englexRecordings});
+  runInNewContext(app.slice(app.indexOf('let voiceManifestRequest=null;'),app.indexOf('function refreshCollection(')),context);
+  await runInNewContext('refreshVoiceManifests()',context);
+  assert.deepEqual([...context.audioIds],[a,b]);
+  manifest={...manifest,count:1,cards:[a]};
+  await runInNewContext('refreshVoiceManifests()',context);
+  assert.deepEqual([...context.audioIds],[a,b],'old CDN response must not remove the new recording');
 });
