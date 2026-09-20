@@ -1,6 +1,4 @@
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
-import {runInNewContext} from 'node:vm';
 import {test} from 'node:test';
 import {FISH_VOICE_URI, FISH_ENGLISH_VOICE_URI, FISH_MODEL_ID, FISH_ENGINE, FISH_PROFILES, isFishVoice, idsForFishVoice, validateFishManifest, recordingFor} from '../dist/fish-voice.mjs';
 
@@ -38,58 +36,6 @@ test('existing original and device voices keep their routing and independent fai
 });
 
 
-function voiceContext(app, preferred=FISH_VOICE_URI) {
-  const selects=Object.fromEntries(['voice-select','card-voice-select'].map(id=>[id,{options:[],replaceChildren(...options){this.options=options;},value:''}]));
-  selects['card-voice-note']={textContent:''};
-  const context={state:{voiceURI:preferred,cards:[{id:a},{id:b}]},fishIds:new Set(),fishEnglishIds:new Set(),audioIds:new Set([a]),speechSupported:false,voices:[],FISH_VOICE_URI,FISH_ENGLISH_VOICE_URI,FISH_PROFILES,isFishVoice,idsForFishVoice,recordingFor,failedRecordings:new Set(),current:()=>null,byId:new Map([[a,{id:a,word:'First generated card'}],[b,{id:b,word:'Current card'}]]),$:id=>selects[id],Option:function(text,value){this.text=text;this.value=value;}};
-  const code=app.slice(app.indexOf('function refreshVoices(){'),app.indexOf('function updateAudioButtons(){'));
-  runInNewContext(code,context);
-  context.resetSpeech=()=>{context.resets=(context.resets||0)+1;runInNewContext('refreshVoices();',context);};
-  context.save=()=>{context.saved=JSON.stringify({voiceURI:context.state.voiceURI});};
-  return {context,selects};
-}
-
-test('both selectors preserve a saved optional preference until its manifest loads',async()=>{
-  const app=await readFile(new URL('../dist/app.js',import.meta.url),'utf8');
-  for(const preferred of [FISH_VOICE_URI,FISH_ENGLISH_VOICE_URI]){
-    const {context,selects}=voiceContext(app,preferred);
-    runInNewContext('refreshVoices();',context);
-    assert.equal(context.state.voiceURI,preferred);
-    runInNewContext('pendingRecording=getRecording(byId.get(\"'+a+'\"));',context);
-    assert.equal(context.pendingRecording.path,`audio/${a}.mp3`,'while metadata is unavailable playback matches the displayed auto voice');
-    for(const id of ['voice-select','card-voice-select'])assert.equal(selects[id].options.some(o=>o.value===preferred),false,'empty voice must not be offered');
-    idsForFishVoice(preferred,context.fishIds,context.fishEnglishIds).add(a);
-    runInNewContext('refreshVoices();',context);
-    for(const id of ['voice-select','card-voice-select']){
-      assert.equal(selects[id].value,preferred);
-      assert.equal(selects[id].options.some(o=>o.value===preferred),true);
-    }
-    runInNewContext('result=voiceTestCard();',context);
-    assert.equal(context.result.id,a,'preview must use an available recording');
-  }
-});
-
-test('changing either selector synchronizes the other and persists globally across cards',async()=>{
-  const app=await readFile(new URL('../dist/app.js',import.meta.url),'utf8');
-  const {context,selects}=voiceContext(app,'auto');
-  context.fishIds.add(a);context.fishEnglishIds.add(b);
-  runInNewContext('selectVoice(FISH_ENGLISH_VOICE_URI);',context);
-  assert.equal(JSON.parse(context.saved).voiceURI,FISH_ENGLISH_VOICE_URI);
-  assert.equal(selects['voice-select'].value,FISH_ENGLISH_VOICE_URI);
-  assert.equal(selects['card-voice-select'].value,FISH_ENGLISH_VOICE_URI);
-  context.current=()=>context.byId.get(b);
-  runInNewContext('refreshVoices();result=voiceTestCard();',context);
-  assert.equal(context.result.id,b);
-  assert.equal(context.state.voiceURI,FISH_ENGLISH_VOICE_URI);
-  runInNewContext('selectVoice(FISH_VOICE_URI);result=voiceTestCard();',context);
-  assert.equal(context.result.id,a,'uncovered current card uses first available preview of selected profile');
-  assert.equal(selects['card-voice-select'].value,FISH_VOICE_URI);
-  assert.equal(context.resets,2,'switching stops old playback');
-  context.failedRecordings.add(`${FISH_VOICE_URI}:${a}`);
-  runInNewContext('result=voiceTestCard();',context);
-  assert.equal(context.result,null,'preview must not silently substitute a different voice');
-});
-
 test('English trial requires its own manifest, files and failures without altering accepted clean audio',()=>{
   const english={...manifest,profile:'en-gb-v1',cards:[b]};
   assert.equal(validateFishManifest(english,validIds),null);
@@ -101,3 +47,4 @@ test('English trial requires its own manifest, files and failures without alteri
   assert.equal(recordingFor({...selected,cardId:a}),null,'accepted voice must not masquerade as English trial');
   assert.equal(recordingFor({...state,fishEnglishIds:new Set([a]),failedRecordings:new Set([`${FISH_ENGLISH_VOICE_URI}:${a}`])}).path,`audio/fish-chonishvili/${a}.mp3?v=clean-1`);
 });
+

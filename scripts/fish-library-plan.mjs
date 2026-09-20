@@ -30,9 +30,11 @@ export function libraryJobs({eventName, event, dictionaryChanged = false}) {
   if (eventName !== 'push' || event.ref !== 'refs/heads/main') return [];
   const jobs = [];
   const message = event.head_commit?.message || '';
-  if (message.startsWith('Run accepted Fish dictionary [fish-all-v1]')) jobs.push({voice: 'accepted', mode: 'full'});
   if (message.startsWith('Run English accent trial [fish-en-gb-v1]')) jobs.push({voice: 'english', mode: 'trial'});
-  if (dictionaryChanged || message.startsWith('Run Chonishvili A dictionary [fish-a-v1]')) jobs.push({voice: 'a', mode: 'full'});
+  // Existing Englex sync messages retain their marker; the user's current
+  // accepted choice is A, so automatic imports no longer extend the old voice.
+  if (dictionaryChanged || message.startsWith('Run Chonishvili A dictionary [fish-a-v1]') ||
+      message.startsWith('Run accepted Fish dictionary [fish-all-v1]')) jobs.push({voice: 'a', mode: 'full'});
   return jobs.map(job => ({...job, continuation: 0}));
 }
 

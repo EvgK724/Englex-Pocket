@@ -38,18 +38,19 @@ test('CLI is default-trial, finite and cannot choose an engine or arbitrary comm
   assert.deepEqual(selectTrialCards(cards).map(c => c.word), words);
 });
 
-test('generation plan adds A for dictionary changes, preserves accepted jobs, and ignores MP3-only checkpoints', () => {
+test('generation plan routes new and legacy sync markers to A and ignores MP3-only checkpoints', () => {
   const plan = (message, dictionaryChanged = false) => libraryJobs({eventName: 'push', event: {ref: 'refs/heads/main', head_commit: {message}}, dictionaryChanged});
   assert.deepEqual(plan('Run Chonishvili A dictionary [fish-a-v1]'), [{voice: 'a', mode: 'full', continuation: 0}]);
   assert.deepEqual(plan('Import 12 new Englex entries', true), [{voice: 'a', mode: 'full', continuation: 0}]);
-  assert.deepEqual(plan('Run accepted Fish dictionary [fish-all-v1]', true), [{voice: 'accepted', mode: 'full', continuation: 0}, {voice: 'a', mode: 'full', continuation: 0}]);
-  assert.deepEqual(plan('Run accepted Fish dictionary [fish-all-v1]'), [{voice: 'accepted', mode: 'full', continuation: 0}]);
+  assert.deepEqual(plan('Run accepted Fish dictionary [fish-all-v1]', true), [{voice: 'a', mode: 'full', continuation: 0}]);
+  assert.deepEqual(plan('Run accepted Fish dictionary [fish-all-v1]'), [{voice: 'a', mode: 'full', continuation: 0}]);
   assert.deepEqual(plan('Run English accent trial [fish-en-gb-v1]'), [{voice: 'english', mode: 'trial', continuation: 0}]);
   assert.deepEqual(plan('Add 50 Fish voice recordings (a-v1)'), []);
   assert.deepEqual(plan('Improve the settings selector'), []);
   assert.deepEqual(libraryJobs({eventName: 'push', event: {ref: 'refs/heads/other'}, dictionaryChanged: true}), []);
   assert.deepEqual(libraryJobs({eventName: 'workflow_dispatch', event: {inputs: {voice: 'a', mode: 'full'}}}), [{voice: 'a', mode: 'full', continuation: 0}]);
   assert.deepEqual(libraryJobs({eventName: 'workflow_dispatch', event: {inputs: {voice: 'a', mode: 'full', continuation: '7'}}}), [{voice: 'a', mode: 'full', continuation: 7}]);
+  assert.deepEqual(libraryJobs({eventName: 'workflow_dispatch', event: {inputs: {voice: 'accepted', mode: 'full'}}}), [{voice: 'accepted', mode: 'full', continuation: 0}]);
   assert.throws(() => libraryJobs({eventName: 'workflow_dispatch', event: {inputs: {voice: 'paid', mode: 'full'}}}));
 });
 
