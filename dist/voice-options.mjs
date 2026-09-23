@@ -1,12 +1,10 @@
-// The three choices are stable even while their optional audio indexes load.
+// Ryan is the sole active voice. Legacy manifest validators preserve archive checks.
 export const ENGLEX_AI_VOICE_URI = 'englex-ai';
 export const CHONISHVILI_A_VOICE_URI = 'fish:089f2e853e064d6fb15f5b5882914b52:a-v1';
 export const SOFT_VOICE_URI = 'auto';
-export const VOICE_PREFERENCE_VERSION = 3;
+export const VOICE_PREFERENCE_VERSION = 4;
 export const VOICE_OPTIONS = Object.freeze([
-  Object.freeze({uri:ENGLEX_AI_VOICE_URI,label:'Ryan'}),
-  Object.freeze({uri:CHONISHVILI_A_VOICE_URI,label:'Choni'}),
-  Object.freeze({uri:SOFT_VOICE_URI,label:'Doris'})
+  Object.freeze({uri:ENGLEX_AI_VOICE_URI,label:'Ryan'})
 ]);
 export const CHONISHVILI_A_MANIFEST = 'fish-chonishvili-a-v1-index.json';
 export const CHONISHVILI_CLEAN_MANIFEST = 'fish-chonishvili-a-clean-v1-index.json';
@@ -15,11 +13,8 @@ export const ENGLEX_RYAN_MANIFEST = 'englex-ryan-index.json';
 export const ENGLEX_RYAN_VOICE = 'en-GB-RyanNeural';
 export const SOFT_VOICE_MANIFEST = 'audio-index.json';
 
-export function migrateVoicePreference(raw) {
-  const uri=raw?.voiceURI;
-  // Apply the requested Ryan default once. Later explicit choices are retained.
-  if(Number.isInteger(raw?.recordedVoiceVersion)&&raw.recordedVoiceVersion>=VOICE_PREFERENCE_VERSION&&
-      VOICE_OPTIONS.some(voice=>voice.uri===uri))return uri;
+export function migrateVoicePreference(_raw) {
+  // Retire every previous voice selection without mutating learning progress.
   return ENGLEX_AI_VOICE_URI;
 }
 
@@ -71,36 +66,19 @@ export function validateSoftVoiceManifest(raw,validIds) {
   return new Set(raw.cards);
 }
 
-export function voiceCardIds(voiceURI,{softIds=new Set(),chonishviliAIds=new Set(),chonishviliCleanIds=new Set(),englexRecordings=new Map(),englexRyanIds=new Set()}={}) {
-  if(voiceURI===SOFT_VOICE_URI)return softIds;
-  if(voiceURI===CHONISHVILI_A_VOICE_URI)return new Set([...chonishviliAIds,...chonishviliCleanIds]);
+export function voiceCardIds(voiceURI,{englexRecordings=new Map(),englexRyanIds=new Set()}={}) {
   if(voiceURI===ENGLEX_AI_VOICE_URI)return new Set([...englexRecordings.keys(),...englexRyanIds]);
   return new Set();
 }
 
-export function recordingForVoice({cardId,voiceURI,softIds=new Set(),chonishviliAIds=new Set(),chonishviliCleanIds=new Set(),englexRecordings=new Map(),englexRyanIds=new Set(),failedRecordings=new Set()}) {
-  if(typeof cardId!=='string'||!/^[a-f0-9]{20}$/.test(cardId))return null;
-  const option=VOICE_OPTIONS.find(voice=>voice.uri===voiceURI);
-  if(!option)return null;
-  let path=null,key=`${voiceURI}:${cardId}`,label=option.label,source=null,fallback=false;
-  if(voiceURI===SOFT_VOICE_URI&&softIds.has(cardId))path=`audio/${cardId}.mp3`;
-  if(voiceURI===CHONISHVILI_A_VOICE_URI){
-    const cleanKey=`${voiceURI}:clean:${cardId}`;
-    if(chonishviliCleanIds.has(cardId)&&!failedRecordings.has(cleanKey)){
-      path=`audio/fish-chonishvili-a-clean-v1/${cardId}.mp3?v=a-clean-v1`;key=cleanKey;source='choni-clean';
-    }else if(chonishviliAIds.has(cardId)){
-      path=`audio/fish-chonishvili-a-v1/${cardId}.mp3?v=a-v1`;source='choni-original';
-      fallback=chonishviliCleanIds.has(cardId)&&failedRecordings.has(cleanKey);
-    }
+export function recordingForVoice({cardId,voiceURI,englexRecordings=new Map(),englexRyanIds=new Set(),failedRecordings=new Set()}) {
+  if(typeof cardId!=='string'||!/^[a-f0-9]{20}$/.test(cardId)||voiceURI!==ENGLEX_AI_VOICE_URI)return null;
+  let path=null,key=null,source=null;
+  if(englexRecordings.has(cardId)){
+    path=englexRecordings.get(cardId);key=`${voiceURI}:original:${cardId}`;source='englex-ai';
+  }else if(englexRyanIds.has(cardId)){
+    path=`audio/englex-ryan/${cardId}.mp3?v=ryan-v1`;key=`${voiceURI}:generated:${cardId}`;source='generated';
   }
-  if(voiceURI===ENGLEX_AI_VOICE_URI){
-    if(englexRecordings.has(cardId)){
-      path=englexRecordings.get(cardId);key=`${voiceURI}:original:${cardId}`;source='englex-ai';
-    }else if(englexRyanIds.has(cardId)){
-      path=`audio/englex-ryan/${cardId}.mp3?v=ryan-v1`;key=`${voiceURI}:generated:${cardId}`;
-      source='generated';
-    }
-  }
-  // No voice substitutes for another: an absent record is genuinely unavailable.
-  return path&&!failedRecordings.has(key)?{path,key,label,source,fallback}:null;
+  // Missing or failed Ryan audio must never silently select a different voice.
+  return path&&!failedRecordings.has(key)?{path,key,label:'Ryan',source,fallback:false}:null;
 }

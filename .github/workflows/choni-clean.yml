@@ -8,13 +8,8 @@ on:
         type: number
         default: 0
         required: false
-  push:
-    branches: [main]
-    paths: ['.github/workflows/choni-clean.yml']
-  workflow_run:
-    workflows: ['Prepare Fish voice library']
-    types: [completed]
-    branches: [main]
+  # Archived after the user selected Ryan only. Preserve manual tooling,
+  # but dictionary imports and no-op Fish runs must not start cleanup.
 
 permissions:
   contents: read
@@ -105,3 +100,4 @@ jobs:
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 14
+

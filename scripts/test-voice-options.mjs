@@ -14,30 +14,26 @@ const a='aaaaaaaaaaaaaaaaaaaa',b='bbbbbbbbbbbbbbbbbbbb',c='cccccccccccccccccccc'
 const validIds=new Set([a,b]);
 const data={softIds:new Set([a,b]),chonishviliAIds:new Set([a]),englexRecordings:new Map([[b,`audio/englex-ai/${b}.mp3`]])};
 
-test('Ryan default migrates old preferences once and retains every later explicit choice without changing progress',()=>{
+test('Ryan is the only preference for fresh installs and all previous voice versions without changing progress',()=>{
+  assert.equal(VOICE_PREFERENCE_VERSION,4);
   assert.equal(migrateVoicePreference(null),ENGLEX_AI_VOICE_URI);
-  for(const recordedVoiceVersion of [undefined,1,2]){
-    for(const voiceURI of ['auto','device:auto','Samantha',CHONISHVILI_A_VOICE_URI,ENGLEX_AI_VOICE_URI])
+  for(const recordedVoiceVersion of [undefined,1,2,3,4,5]){
+    for(const voiceURI of ['auto','device:auto','Samantha',CHONISHVILI_A_VOICE_URI,ENGLEX_AI_VOICE_URI,'removed-voice'])
       assert.equal(migrateVoicePreference({voiceURI,recordedVoiceVersion}),ENGLEX_AI_VOICE_URI);
   }
-  for(const uri of VOICE_OPTIONS.map(voice=>voice.uri)){
-    assert.equal(migrateVoicePreference({voiceURI:uri,recordedVoiceVersion:VOICE_PREFERENCE_VERSION}),uri);
-    assert.equal(migrateVoicePreference({voiceURI:uri,recordedVoiceVersion:VOICE_PREFERENCE_VERSION+1}),uri);
-  }
-  assert.equal(migrateVoicePreference({voiceURI:'removed-voice',recordedVoiceVersion:VOICE_PREFERENCE_VERSION}),ENGLEX_AI_VOICE_URI);
-  const progress={voiceURI:'auto',recordedVoiceVersion:2,stars:[a],ratings:{[b]:'known'},currentId:b,rate:.8};
+  const progress={voiceURI:'auto',recordedVoiceVersion:3,stars:[a],ratings:{[b]:'known'},currentId:b,rate:.8};
   const before=structuredClone(progress);
   assert.equal(migrateVoicePreference(progress),ENGLEX_AI_VOICE_URI);
   assert.deepEqual(progress,before,'migration must not mutate learning progress');
 });
 
-test('card buttons and settings menu expose exactly Ryan, Choni and Doris with Ryan initially selected',async()=>{
-  assert.deepEqual(VOICE_OPTIONS.map(voice=>voice.label),['Ryan','Choni','Doris']);
+test('card button and settings menu expose only Ryan',async()=>{
+  assert.deepEqual(VOICE_OPTIONS.map(voice=>voice.label),['Ryan']);
   const html=await readFile(new URL('../dist/index.html',import.meta.url),'utf8');
   const menus=[...html.matchAll(/<select id="(voice-select)"[^>]*>([\s\S]*?)<\/select>/g)];
   assert.equal(menus.length,1);
   for(const [,id,markup] of menus){
-    assert.deepEqual([...markup.matchAll(/<option[^>]*>([^<]+)<\/option>/g)].map(match=>match[1]),['Ryan','Choni','Doris'],id);
+    assert.deepEqual([...markup.matchAll(/<option[^>]*>([^<]+)<\/option>/g)].map(match=>match[1]),['Ryan'],id);
     assert.match(markup,/<option value="englex-ai" selected>Ryan<\/option>/);
     assert.equal((markup.match(/\bselected\b/g)||[]).length,1);
   }
@@ -55,12 +51,15 @@ test('card buttons and settings menu expose exactly Ryan, Choni and Doris with R
   const app=await readFile(new URL('../dist/app.js',import.meta.url),'utf8');
   const source=app.slice(app.indexOf('const state='),app.indexOf('let byId='));
   assert.equal(runInNewContext(`${source}\nstate.voiceURI`,{ENGLEX_AI_VOICE_URI}),ENGLEX_AI_VOICE_URI);
-  assert.doesNotMatch(html,/Englex · AI|Чонишвили · вариант A|AI Voice · мягкий голос/);
+  assert.doesNotMatch(html,/Englex · AI|Чонишвили · вариант A|AI Voice · мягкий голос|Choni|Doris|выберите другой из трёх/i);
+  const css=await readFile(new URL('../dist/comfort.css',import.meta.url),'utf8');
+  assert.match(css,/grid-template-columns: minmax\(0, 1fr\)/);
+  assert.match(css,/min-height: 44px/);
 });
 
-test('actual progress load/save records the one-time Ryan migration without resetting learning state',async()=>{
+test('actual progress load/save migrates Choni and Doris to Ryan without resetting learning state',async()=>{
   const app=await readFile(new URL('../dist/app.js',import.meta.url),'utf8');
-  const original={version:1,recordedVoiceVersion:2,voiceURI:CHONISHVILI_A_VOICE_URI,stars:[a],ratings:{[a]:'review',[b]:'known'},currentId:b,rate:1.05,kind:'phrasal',sort:'alphabetical'};
+  const original={version:1,recordedVoiceVersion:3,voiceURI:CHONISHVILI_A_VOICE_URI,stars:[a],ratings:{[a]:'review',[b]:'known'},currentId:b,rate:1.05,kind:'phrasal',sort:'alphabetical'};
   let stored=JSON.stringify(original);
   const context={state:{stars:new Set(),ratings:{},voiceURI:ENGLEX_AI_VOICE_URI},searchBookmark:null,currentId:null,byId:new Map([[a,{id:a}],[b,{id:b}]]),STORAGE_KEY:'englex-pocket-v1',VOICE_PREFERENCE_VERSION,VOICE_OPTIONS,ENGLEX_AI_VOICE_URI,CHONISHVILI_A_VOICE_URI,SOFT_VOICE_URI,migrateVoicePreference,sanitizeProgress,storageWarning:false,toast:()=>assert.fail('valid progress should load'),resetSpeech(){},localStorage:{getItem:()=>stored,setItem:(key,value)=>{assert.equal(key,'englex-pocket-v1');stored=value;}}};
   context.current=()=>context.byId.get(context.currentId)||null;
@@ -73,9 +72,10 @@ test('actual progress load/save records the one-time Ryan migration without rese
     context.requestedURI=uri;
     runInNewContext('selectVoice(requestedURI);',context);
     assert.equal(JSON.parse(stored).recordedVoiceVersion,VOICE_PREFERENCE_VERSION);
-    context.state.voiceURI=ENGLEX_AI_VOICE_URI;
+    assert.equal(context.state.voiceURI,ENGLEX_AI_VOICE_URI,'old controls cannot select a retired voice');
+    stored=JSON.stringify({...original,voiceURI:uri,recordedVoiceVersion:3});
     runInNewContext('loadProgress();save();',context);
-    assert.deepEqual(JSON.parse(stored),{...original,recordedVoiceVersion:VOICE_PREFERENCE_VERSION,voiceURI:uri},'subsequent explicit choice and every learning field survive reload');
+    assert.deepEqual(JSON.parse(stored),{...original,recordedVoiceVersion:VOICE_PREFERENCE_VERSION,voiceURI:ENGLEX_AI_VOICE_URI},'retired choices are ignored and every learning field survives reload');
   }
 });
 
@@ -101,7 +101,7 @@ test('Ryan supplement requires generated Microsoft Edge provenance, exact voice 
 test('Englex coverage is the union, originals take priority and generated files never masquerade as originals',()=>{
   const voices={...data,englexRecordings:new Map([[a,`audio/englex-ai/${a}.mp3`]]),englexRyanIds:new Set([a,b])};
   assert.deepEqual([...voiceCardIds(ENGLEX_AI_VOICE_URI,voices)],[a,b]);
-  assert.equal(VOICE_OPTIONS.length,3);
+  assert.equal(VOICE_OPTIONS.length,1);
   const original=recordingForVoice({...voices,cardId:a,voiceURI:ENGLEX_AI_VOICE_URI});
   const generated=recordingForVoice({...voices,cardId:b,voiceURI:ENGLEX_AI_VOICE_URI});
   assert.equal(original.path,`audio/englex-ai/${a}.mp3`);assert.equal(original.source,'englex-ai');
@@ -109,7 +109,7 @@ test('Englex coverage is the union, originals take priority and generated files 
   assert.equal(generated.label,'Ryan');
   assert.equal(recordingForVoice({...voices,cardId:a,voiceURI:ENGLEX_AI_VOICE_URI,failedRecordings:new Set([original.key])}),null,'failed original is not silently exchanged for generated audio');
   assert.equal(recordingForVoice({...voices,cardId:a,voiceURI:ENGLEX_AI_VOICE_URI,failedRecordings:new Set([`${ENGLEX_AI_VOICE_URI}:generated:${a}`])}).source,'englex-ai','an original added later is not blocked by a previous generated-recording failure');
-  assert.equal(recordingForVoice({...voices,cardId:b,voiceURI:SOFT_VOICE_URI}).path,`audio/${b}.mp3`,'other two choices keep their own voice');
+  assert.equal(recordingForVoice({...voices,cardId:b,voiceURI:SOFT_VOICE_URI}),null,'archived Doris is not an active choice');
 });
 
 test('A index cannot enable accepted or English trial audio, unknown IDs or paid engine data',()=>{
@@ -131,33 +131,21 @@ test('clean Choni index binds each known ID to the approved original profile and
     assert.equal(validateChonishviliCleanManifest({...manifest,...changes},validIds),null,JSON.stringify(changes));
 });
 
-test('Choni prefers cleaned IDs, retains originals during the build, and only retries its own original on failure',()=>{
-  const voices={...data,chonishviliAIds:new Set([a,b]),chonishviliCleanIds:new Set([a,c])};
-  assert.deepEqual([...voiceCardIds(CHONISHVILI_A_VOICE_URI,voices)],[a,b,c]);
-  assert.equal(VOICE_OPTIONS.length,3,'cleaned audio does not add a voice');
-  const route=(cardId,failedRecordings=new Set())=>recordingForVoice({...voices,cardId,voiceURI:CHONISHVILI_A_VOICE_URI,failedRecordings});
-  const clean=route(a),original=route(b);
-  assert.equal(clean.path,`audio/fish-chonishvili-a-clean-v1/${a}.mp3?v=a-clean-v1`);assert.equal(clean.label,'Choni');assert.equal(clean.source,'choni-clean');
-  assert.equal(original.path,`audio/fish-chonishvili-a-v1/${b}.mp3?v=a-v1`);assert.equal(original.source,'choni-original');assert.equal(original.fallback,false);
-  const failed=new Set([clean.key]);
-  const retry=route(a,failed);
-  assert.equal(retry.source,'choni-original');assert.equal(retry.fallback,true);assert.equal(retry.label,'Choni');
-  failed.add(retry.key);assert.equal(route(a,failed),null,'both sources failed: do not substitute Doris');
-  assert.equal(route(c,new Set([route(c).key])),null,'missing original cannot be replaced by another card');
-  assert.equal(recordingForVoice({...voices,cardId:a,voiceURI:SOFT_VOICE_URI}).path,`audio/${a}.mp3`,'Doris ignores the clean Choni manifest');
-  assert.equal(recordingForVoice({...voices,cardId:a,voiceURI:ENGLEX_AI_VOICE_URI}),null,'Ryan ignores the clean Choni manifest');
+test('archived Choni and Doris metadata cannot reactivate playback or coverage',()=>{
+  const voices={...data,chonishviliAIds:new Set([a,b]),chonishviliCleanIds:new Set([a,b]),englexRyanIds:new Set([a,b])};
+  for(const voiceURI of [CHONISHVILI_A_VOICE_URI,SOFT_VOICE_URI,'device:auto','removed-voice']){
+    assert.equal(voiceCardIds(voiceURI,voices).size,0);
+    for(const cardId of [a,b])assert.equal(recordingForVoice({...voices,cardId,voiceURI}),null);
+  }
 });
 
-test('each option routes only its own recording and an unavailable voice has no fallback',()=>{
-  const route=(voiceURI,cardId=a,failedRecordings=new Set())=>recordingForVoice({voiceURI,cardId,...data,failedRecordings});
-  assert.equal(route(CHONISHVILI_A_VOICE_URI).path,`audio/fish-chonishvili-a-v1/${a}.mp3?v=a-v1`);
-  assert.equal(route(SOFT_VOICE_URI).path,`audio/${a}.mp3`);
-  assert.equal(route(ENGLEX_AI_VOICE_URI,b).path,`audio/englex-ai/${b}.mp3`);
-  assert.equal(route(CHONISHVILI_A_VOICE_URI,b),null,'soft recording must not masquerade as A');
-  assert.equal(route(ENGLEX_AI_VOICE_URI,a),null,'A recording must not masquerade as Englex');
-  assert.equal(route('device:auto'),null);
-  assert.equal(route(CHONISHVILI_A_VOICE_URI,a,new Set([`${CHONISHVILI_A_VOICE_URI}:${a}`])),null);
-  assert.ok(route(SOFT_VOICE_URI,a,new Set([`${CHONISHVILI_A_VOICE_URI}:${a}`])),'failed A does not disable soft');
+test('Ryan unavailable or failed recordings never fall back to another voice',()=>{
+  const route=(cardId=a,failedRecordings=new Set())=>recordingForVoice({voiceURI:ENGLEX_AI_VOICE_URI,cardId,...data,failedRecordings});
+  assert.equal(route(a),null,'archived Choni or Doris cannot masquerade as Ryan');
+  const recording=route(b);
+  assert.equal(recording.path,`audio/englex-ai/${b}.mp3`);
+  assert.equal(route(b,new Set([recording.key])),null);
+  assert.equal(route('../invalid'),null);
 });
 
 async function uiContext(preferred=ENGLEX_AI_VOICE_URI){
@@ -189,21 +177,25 @@ function assertVoiceSelection(context,node,voiceButtons,selected){
   for(const button of voiceButtons)assert.equal(button.getAttribute('aria-pressed'),String(button.dataset.cardVoice===selected));
 }
 
-test('both controls always expose exactly three choices, including a selected voice with pending audio',async()=>{
-  const {context,node,voiceButtons}=await uiContext(CHONISHVILI_A_VOICE_URI);
+test('both controls expose only Ryan while its audio is pending; another Ryan sample can be previewed',async()=>{
+  const {context,node,voiceButtons}=await uiContext();
   runInNewContext('refreshVoices();updateAudioButtons();',context);
-  assertVoiceSelection(context,node,voiceButtons,CHONISHVILI_A_VOICE_URI);
+  assertVoiceSelection(context,node,voiceButtons,ENGLEX_AI_VOICE_URI);
   assert.equal(node('speak-front').disabled,true);
   assert.equal(node('test-voice').disabled,true);
-  context.chonishviliAIds.add(a);
+  assert.match(node('card-voice-note').textContent,/Ryan.*пока недоступна/);
+  assert.doesNotMatch(node('card-voice-note').textContent,/другой голос/);
+  context.englexRyanIds.add(a);
   runInNewContext('refreshVoices();updateAudioButtons();',context);
-  assert.equal(node('speak-front').disabled,true,'current phrase is not recorded as A');
-  assert.equal(node('test-voice').disabled,false,'another A recording can be previewed');
-  assert.match(node('voice-test-note').textContent,/First recording/,'preview identifies the actual word before clicking');
+  assert.equal(node('speak-front').disabled,true,'current phrase is not recorded as Ryan');
+  assert.equal(node('test-voice').disabled,false,'another Ryan recording can be previewed');
+  assert.match(node('voice-test-note').textContent,/First recording/);
   runInNewContext('selectVoice(SOFT_VOICE_URI);',context);
-  assert.equal(context.savedURI,SOFT_VOICE_URI);
+  assert.equal(context.savedURI,undefined,'retired choice must not persist');
+  assertVoiceSelection(context,node,voiceButtons,ENGLEX_AI_VOICE_URI);
+  context.englexRyanIds.add(b);
+  runInNewContext('refreshVoices();updateAudioButtons();',context);
   assert.equal(node('speak-front').disabled,false);
-  assertVoiceSelection(context,node,voiceButtons,SOFT_VOICE_URI);
 });
 
 test('card button clicks and settings changes sync both controls, keep focus, and save all learning state',async()=>{
@@ -291,47 +283,9 @@ test('real player failure clears busy state and reset makes the same speaker ret
   assert.equal(node('speak-front').getAttribute('aria-busy'),undefined);
 });
 
-test('cleaned recording failure offers an honest original Choni retry in a new click, then reset retries clean',async()=>{
-  const {context,node}=await uiContext(CHONISHVILI_A_VOICE_URI);
-  context.chonishviliAIds.add(b);context.chonishviliCleanIds.add(b);
-  const media=attachRealPlayer(context);
-  runInNewContext('refreshVoices();updateAudioButtons();pronounce(current(),$("speak-front"));',context);
-  assert.match(media[0].src,/audio\/fish-chonishvili-a-clean-v1\//);
-  assert.match(node('voice-test-note').textContent,/очищенная запись/);
-  media[0].onerror();
-  assert.equal(media.length,1,'asynchronous failure does not start audio outside the user gesture');
-  assert.equal(node('speak-front').getAttribute('aria-busy'),undefined);
-  assert.equal(node('speak-front').disabled,false,'same Choni original is ready for a user retry');
-  assert.match(node('audio-status').textContent,/Нажмите на динамик.*исходную запись Choni/);
-  assert.match(node('card-voice-note').textContent,/Очищенная запись не загрузилась.*исходную/);
-  assert.equal(node('card-voice-note').hidden,false,'fallback warning remains visible');
-  runInNewContext('pronounce(current(),$("speak-front"));',context);
-  assert.match(media[1].src,/audio\/fish-chonishvili-a-v1\//);
-  media[1].onplaying();assert.match(node('audio-status').textContent,/Choni: Current phrase · исходная запись/);
-  media[1].onerror();
-  assert.equal(node('speak-front').disabled,true,'failed original is unavailable until reset');
-  assert.match(node('card-voice-note').textContent,/Перезапустить звук/);
-  assert.equal(node('card-voice-note').hidden,false,'audio failure remains visible');
-  runInNewContext('resetSpeech();pronounce(current(),$("speak-front"));',context);
-  assert.equal(node('speak-front').getAttribute('aria-busy'),'true');
-  assert.match(media[2].src,/audio\/fish-chonishvili-a-clean-v1\//);
-  assert.equal(context.state.voiceURI,CHONISHVILI_A_VOICE_URI);
-});
 
-test('unbuilt cleaned audio keeps original Choni available and makes the current source visible',async()=>{
-  const {context,node}=await uiContext(CHONISHVILI_A_VOICE_URI);
-  context.chonishviliAIds.add(b);
-  runInNewContext('refreshVoices();updateAudioButtons();',context);
-  assert.equal(node('speak-front').disabled,false);
-  assert.match(node('card-voice-note').textContent,/доступна исходная запись/);
-  assert.match(node('voice-test-note').textContent,/исходная запись/);
-  assert.equal(node('fish-coverage').hidden,false);
-  assert.match(node('fish-coverage').textContent,/0 очищенных/);
-  context.chonishviliCleanIds.add(b);
-  runInNewContext('refreshVoices();updateAudioButtons();',context);
-  assert.equal(node('card-voice-note').textContent,'Выбран для всей коллекции.');
-  assert.match(node('fish-coverage').textContent,/1 очищенных/);
-});
+
+
 
 test('late failure from a stopped card cannot clear busy state or disable a new card using the same speaker',async()=>{
   const {context,node}=await uiContext(ENGLEX_AI_VOICE_URI);
@@ -364,24 +318,27 @@ test('soft manifest verifies provider, complete count and dictionary IDs while p
     assert.equal(validateSoftVoiceManifest({...manifest,...changed},validIds),null);
 });
 
-test('soft audio refresh enables new recordings and rejects stale smaller indexes',async()=>{
+test('dictionary refresh requests only dictionary data, never archived voice indexes',async()=>{
   const app=await readFile(new URL('../dist/app.js',import.meta.url),'utf8');
-  let manifest={version:1,provider:'AI Voice Generator',voice:'delicate',count:2,cards:[a,b]};
-  const context={audioIds:new Set([a]),chonishviliAIds:new Set(),chonishviliCleanIds:new Set(),englexRecordings:new Map(),englexRyanIds:new Set(),voiceLoadStatus:new Map([[SOFT_VOICE_URI,'ready']]),byId:new Map([[a,{}],[b,{}]]),SOFT_VOICE_URI,SOFT_VOICE_MANIFEST:'audio-index.json',CHONISHVILI_A_VOICE_URI,CHONISHVILI_A_MANIFEST:'a-index.json',CHONISHVILI_CLEAN_MANIFEST,validateChonishviliCleanManifest,ENGLEX_AI_VOICE_URI,ENGLEX_AI_MANIFEST:'englex-index.json',ENGLEX_RYAN_MANIFEST,validateEnglexRyanManifest,validateSoftVoiceManifest,validateChonishviliAManifest,validateEnglexAIManifest,voiceCardIds,assetUrl:path=>path,AbortController,setTimeout,clearTimeout,refreshVoices(){},updateAudioButtons(){},fetch:async path=>({ok:true,json:async()=>path.startsWith('audio-index')?manifest:null})};
-  context.voiceData=()=>({softIds:context.audioIds,chonishviliAIds:context.chonishviliAIds,chonishviliCleanIds:context.chonishviliCleanIds,englexRecordings:context.englexRecordings,englexRyanIds:context.englexRyanIds});
-  runInNewContext(app.slice(app.indexOf('let voiceManifestRequest=null;'),app.indexOf('function refreshCollection(')),context);
-  await runInNewContext('refreshVoiceManifests()',context);
-  assert.deepEqual([...context.audioIds],[a,b]);
-  manifest={...manifest,count:1,cards:[a]};
-  await runInNewContext('refreshVoiceManifests()',context);
-  assert.deepEqual([...context.audioIds],[a,b],'old CDN response must not remove the new recording');
+  const requested=[];
+  const dictionary={metadata:{count:0},cards:[]};
+  const context={AbortController,setTimeout,clearTimeout,assetUrl:path=>path,fetch:async(path,options)=>{
+    requested.push(path);assert.equal(options.cache,'no-store');
+    return {ok:true,json:async()=>dictionary};
+  }};
+  runInNewContext(app.slice(app.indexOf('async function fetchCollection(){'),app.indexOf('function installCollection(')),context);
+  assert.equal(await runInNewContext('fetchCollection()',context),dictionary);
+  assert.equal(requested.length,1);
+  assert.match(requested[0],/^dictionary\.json\?sync=/);
+  assert.doesNotMatch(app,/audio-index\.json|CHONISHVILI|SOFT_VOICE|Choni|Doris/);
 });
 
 test('original and generated manifests grow independently and stale replies cannot reduce either source',async()=>{
   const app=await readFile(new URL('../dist/app.js',import.meta.url),'utf8');
+  const requested=[];
   let original={version:1,source:'englex-ai',recordings:{[a]:`audio/englex-ai/${a}.mp3`,[c]:`audio/englex-ai/${c}.mp3`}};
   let generated={version:1,provider:'Microsoft Edge',source:'generated',voice:ENGLEX_RYAN_VOICE,count:2,cards:[a,b]};
-  const context={audioIds:new Set(),chonishviliAIds:new Set(),chonishviliCleanIds:new Set(),englexRecordings:new Map([[a,`audio/englex-ai/${a}.mp3`]]),englexRyanIds:new Set([b]),voiceLoadStatus:new Map([[ENGLEX_AI_VOICE_URI,'ready']]),byId:new Map([[a,{}],[b,{}],[c,{}]]),SOFT_VOICE_URI,SOFT_VOICE_MANIFEST:'audio-index.json',CHONISHVILI_A_VOICE_URI,CHONISHVILI_A_MANIFEST:'a-index.json',CHONISHVILI_CLEAN_MANIFEST,validateChonishviliCleanManifest,ENGLEX_AI_VOICE_URI,ENGLEX_AI_MANIFEST:'englex-index.json',ENGLEX_RYAN_MANIFEST,validateEnglexRyanManifest,validateSoftVoiceManifest,validateChonishviliAManifest,validateEnglexAIManifest,voiceCardIds,assetUrl:path=>path,AbortController,setTimeout,clearTimeout,refreshVoices(){},updateAudioButtons(){},fetch:async path=>({ok:true,json:async()=>path.startsWith('englex-index')?original:path.startsWith(ENGLEX_RYAN_MANIFEST)?generated:null})};
+  const context={audioIds:new Set(),chonishviliAIds:new Set(),chonishviliCleanIds:new Set(),englexRecordings:new Map([[a,`audio/englex-ai/${a}.mp3`]]),englexRyanIds:new Set([b]),voiceLoadStatus:new Map([[ENGLEX_AI_VOICE_URI,'ready']]),byId:new Map([[a,{}],[b,{}],[c,{}]]),SOFT_VOICE_URI,SOFT_VOICE_MANIFEST:'audio-index.json',CHONISHVILI_A_VOICE_URI,CHONISHVILI_A_MANIFEST:'a-index.json',CHONISHVILI_CLEAN_MANIFEST,validateChonishviliCleanManifest,ENGLEX_AI_VOICE_URI,ENGLEX_AI_MANIFEST:'englex-index.json',ENGLEX_RYAN_MANIFEST,validateEnglexRyanManifest,validateSoftVoiceManifest,validateChonishviliAManifest,validateEnglexAIManifest,voiceCardIds,assetUrl:path=>path,AbortController,setTimeout,clearTimeout,refreshVoices(){},updateAudioButtons(){},fetch:async path=>{requested.push(path.split('?')[0]);return {ok:true,json:async()=>path.startsWith('englex-index')?original:path.startsWith(ENGLEX_RYAN_MANIFEST)?generated:null};}};
   context.voiceData=()=>({softIds:context.audioIds,chonishviliAIds:context.chonishviliAIds,chonishviliCleanIds:context.chonishviliCleanIds,englexRecordings:context.englexRecordings,englexRyanIds:context.englexRyanIds});
   runInNewContext(app.slice(app.indexOf('let voiceManifestRequest=null;'),app.indexOf('function refreshCollection(')),context);
   await runInNewContext('refreshVoiceManifests()',context);
@@ -392,23 +349,7 @@ test('original and generated manifests grow independently and stale replies cann
   await runInNewContext('refreshVoiceManifests()',context);
   assert.deepEqual([...context.englexRecordings.keys()],[a,c]);assert.deepEqual([...context.englexRyanIds],[a,b]);
   assert.equal(context.voiceLoadStatus.get(ENGLEX_AI_VOICE_URI),'ready');
+  assert.deepEqual([...new Set(requested)].sort(),['englex-index.json',ENGLEX_RYAN_MANIFEST].sort(),'only Ryan sources are fetched');
 });
 
-test('clean and original Choni manifests grow independently; stale or unavailable clean data never removes audio',async()=>{
-  const app=await readFile(new URL('../dist/app.js',import.meta.url),'utf8');
-  let original={version:1,profile:'a-v1',voiceId:'089f2e853e064d6fb15f5b5882914b52',engine:'s2.1-pro-free',cards:[a,b,c]};
-  let cleaned=cleanManifest([a,b]);
-  const context={audioIds:new Set(),chonishviliAIds:new Set([a,b]),chonishviliCleanIds:new Set([a]),englexRecordings:new Map(),englexRyanIds:new Set(),voiceLoadStatus:new Map([[CHONISHVILI_A_VOICE_URI,'ready']]),byId:new Map([[a,{}],[b,{}],[c,{}]]),SOFT_VOICE_URI,SOFT_VOICE_MANIFEST:'audio-index.json',CHONISHVILI_A_VOICE_URI,CHONISHVILI_A_MANIFEST:'a-index.json',CHONISHVILI_CLEAN_MANIFEST,validateChonishviliCleanManifest,ENGLEX_AI_VOICE_URI,ENGLEX_AI_MANIFEST:'englex-index.json',ENGLEX_RYAN_MANIFEST,validateEnglexRyanManifest,validateSoftVoiceManifest,validateChonishviliAManifest,validateEnglexAIManifest,voiceCardIds,assetUrl:path=>path,AbortController,setTimeout,clearTimeout,refreshVoices(){},updateAudioButtons(){},fetch:async path=>({ok:true,json:async()=>path.startsWith('a-index')?original:path.startsWith(CHONISHVILI_CLEAN_MANIFEST)?cleaned:null})};
-  context.voiceData=()=>({softIds:context.audioIds,chonishviliAIds:context.chonishviliAIds,chonishviliCleanIds:context.chonishviliCleanIds,englexRecordings:context.englexRecordings,englexRyanIds:context.englexRyanIds});
-  runInNewContext(app.slice(app.indexOf('let voiceManifestRequest=null;'),app.indexOf('function refreshCollection(')),context);
-  await runInNewContext('refreshVoiceManifests()',context);
-  assert.deepEqual([...context.chonishviliAIds],[a,b,c]);assert.deepEqual([...context.chonishviliCleanIds],[a,b]);
-  assert.equal(voiceCardIds(CHONISHVILI_A_VOICE_URI,context.voiceData()).size,3);
-  original={...original,cards:[a]};cleaned=cleanManifest([a]);
-  await runInNewContext('refreshVoiceManifests()',context);
-  assert.deepEqual([...context.chonishviliAIds],[a,b,c]);assert.deepEqual([...context.chonishviliCleanIds],[a,b]);
-  cleaned=null;
-  await runInNewContext('refreshVoiceManifests()',context);
-  assert.equal(context.voiceLoadStatus.get(CHONISHVILI_A_VOICE_URI),'ready');
-  assert.deepEqual([...context.chonishviliCleanIds],[a,b]);
-});
+

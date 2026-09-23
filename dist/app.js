@@ -1,7 +1,7 @@
 import {normalizeText, speechText, selectCards, sanitizeProgress, formatDate} from './core.mjs?v=ux-comfort-1';
 import {RecordedSpeech} from './recorded-speech.mjs';
 import {assetUrl} from './paths.mjs';
-import {VOICE_OPTIONS, VOICE_PREFERENCE_VERSION, ENGLEX_AI_VOICE_URI, CHONISHVILI_A_VOICE_URI, SOFT_VOICE_URI, SOFT_VOICE_MANIFEST, CHONISHVILI_A_MANIFEST, CHONISHVILI_CLEAN_MANIFEST, ENGLEX_AI_MANIFEST, ENGLEX_RYAN_MANIFEST, migrateVoicePreference, validateEnglexAIManifest, validateEnglexRyanManifest, validateChonishviliAManifest, validateChonishviliCleanManifest, validateSoftVoiceManifest, voiceCardIds, recordingForVoice} from './voice-options.mjs?v=choni-clean-1';
+import {VOICE_OPTIONS, VOICE_PREFERENCE_VERSION, ENGLEX_AI_VOICE_URI, ENGLEX_AI_MANIFEST, ENGLEX_RYAN_MANIFEST, migrateVoicePreference, validateEnglexAIManifest, validateEnglexRyanManifest, voiceCardIds, recordingForVoice} from './voice-options.mjs?v=ryan-only-1';
 
 const $ = id => document.getElementById(id);
 const icons = {
@@ -31,7 +31,7 @@ const state={cards:[],filtered:[],stars:new Set(),ratings:Object.create(null),qu
 let byId=new Map(),metadata=null, toastTimer,storageWarning=false;
 let currentId=null;
 let searchBookmark=null;
-let audioIds=new Set(),chonishviliAIds=new Set(),chonishviliCleanIds=new Set(),englexRecordings=new Map(),englexRyanIds=new Set();
+let englexRecordings=new Map(),englexRyanIds=new Set();
 const voiceLoadStatus=new Map(VOICE_OPTIONS.map(voice=>[voice.uri,'loading']));
 const COLLECTION_REFRESH_DELAY=60_000;
 let collectionRequest=null,lastCollectionAttempt=0,collectionSignature='';
@@ -167,7 +167,7 @@ function mark(value){
 }
 function toggleStar(){const c=current();if(!c)return;const was=state.stars.has(c.id);if(was)state.stars.delete(c.id);else state.stars.add(c.id);save();updateCounts();if(state.deck==='starred'&&was){const old=state.index;state.filtered=state.filtered.filter(x=>x.id!==c.id);state.index=Math.min(old,Math.max(0,state.filtered.length-1));renderResults();renderCard();}else{for(const id of ['star-front','star-back']){$(id).setAttribute('aria-pressed',String(!was));$(id).setAttribute('aria-label',was?'Добавить в избранное':'Убрать из избранного');}}}
 
-function voiceData(){return {softIds:audioIds,chonishviliAIds,chonishviliCleanIds,englexRecordings,englexRyanIds};}
+function voiceData(){return {englexRecordings,englexRyanIds};}
 function selectedVoice(){return VOICE_OPTIONS.find(voice=>voice.uri===state.voiceURI)||VOICE_OPTIONS[0];}
 function refreshVoices(){
   const select=$('voice-select');select.replaceChildren(...VOICE_OPTIONS.map(voice=>new Option(voice.label,voice.uri)));select.value=state.voiceURI;
@@ -179,17 +179,14 @@ function canPlayRecording(card){return !!getRecording(card);}
 function updateVoiceCoverage(){
   const count=n=>n.toLocaleString('ru-RU');
   $('voice-coverage').textContent=VOICE_OPTIONS.map(voice=>`${voice.label}: ${count(voiceCardIds(voice.uri,voiceData()).size)} из ${count(state.cards.length)} карточек.`).join(' ');
-  $('fish-coverage').hidden=false;
-  $('fish-coverage').textContent=`Choni: ${count(chonishviliCleanIds.size)} очищенных записей. Если очищенной записи нет, используется доступная исходная.`;
   const synthesized=[...englexRyanIds].filter(id=>!englexRecordings.has(id)).length;
   $('englex-voice-provenance').textContent=`Ryan: ${count(englexRecordings.size)} оригинальных записей Englex; ${count(synthesized)} дополнительных записей синтезированы голосом Ryan (Microsoft Edge).`;
 }
 function updateCardVoiceNote(){
   const recording=getRecording(current());
-  let status=recording?'Выбран для всей коллекции.':voiceLoadStatus.get(state.voiceURI)==='loading'?'Загружаем доступные записи…':'Запись этой карточки пока недоступна. Выберите другой голос.';
+  let status=recording?'Выбран для всей коллекции.':voiceLoadStatus.get(state.voiceURI)==='loading'?'Загружаем доступные записи…':'Запись Ryan для этой карточки пока недоступна.';
   const candidate=recordingForVoice({cardId:current()?.id,voiceURI:state.voiceURI,...voiceData()});
-  if(recording?.source==='choni-original')status=recording.fallback?'Очищенная запись не загрузилась. Динамик воспроизведёт исходную.':'Для этой карточки пока доступна исходная запись.';
-  else if(candidate&&failedRecordings.has(candidate.key))status='Запись не загрузилась. Нажмите «Перезапустить звук».';
+  if(candidate&&failedRecordings.has(candidate.key))status='Запись не загрузилась. Нажмите «Перезапустить звук».';
   $('card-voice-note').textContent=status;
   $('card-voice-note').hidden=status==='Выбран для всей коллекции.';
 }
@@ -208,7 +205,7 @@ function updateAudioButtons(){
   if($('test-voice').getAttribute('aria-busy')!=='true')$('test-voice').disabled=!voiceTestCard();
   const sample=voiceTestCard();
   const sampleRecording=getRecording(sample);
-  const sourceNote=sampleRecording?.source==='generated'?' · синтез Ryan (Microsoft Edge)':sampleRecording?.source==='englex-ai'?' · оригинальная запись Englex':sampleRecording?.source==='choni-clean'?' · очищенная запись':sampleRecording?.source==='choni-original'?' · исходная запись':'';
+  const sourceNote=sampleRecording?.source==='generated'?' · синтез Ryan (Microsoft Edge)':sampleRecording?.source==='englex-ai'?' · оригинальная запись Englex':'';
   $('voice-test-note').textContent=sample?`Будет звучать: ${speechText(sample.word)}${sourceNote}`:'Записей выбранного голоса пока нет.';
   updateCardVoiceNote();
 }
@@ -221,13 +218,10 @@ function pronounce(card,button){
   button.disabled=true;button.setAttribute('aria-busy','true');$('audio-reset').hidden=false;
   $('audio-status').textContent=`Загружаем ${recording.label}: ${speechText(card.word)}…`;
   recordedSpeech.play(assetUrl(recording.path),{rate:state.rate,
-    onStart:()=>{$('audio-status').textContent=`${recording.label}: ${speechText(card.word)}${recording.source==='choni-original'?' · исходная запись':''}`;},
+    onStart:()=>{$('audio-status').textContent=`${recording.label}: ${speechText(card.word)}`;},
     onFinish:()=>{button.removeAttribute('aria-busy');button.disabled=false;$('audio-status').textContent='';$('audio-reset').hidden=true;updateAudioButtons();},
     onError:()=>{failedRecordings.add(recording.key);updateAudioButtons();
-      const retry=getRecording(card);
-      $('audio-status').textContent=recording.source==='choni-clean'&&retry?.source==='choni-original'?
-        'Очищенная запись не загрузилась. Нажмите на динамик, чтобы прослушать исходную запись Choni.':
-        'Не удалось загрузить выбранную запись. Проверьте подключение и нажмите «Перезапустить звук».';$('audio-reset').hidden=false;
+      $('audio-status').textContent='Не удалось загрузить запись Ryan. Проверьте подключение и нажмите «Перезапустить звук».';$('audio-reset').hidden=false;
     }
   });
 }
@@ -289,13 +283,12 @@ async function fetchCollection(){
   // A unique query also avoids stale shared/CDN caches after Pages deploys.
   const freshAsset=path=>`${assetUrl(path)}?sync=${Date.now()}`;
   try{
-    return await Promise.all([
-      fetch(freshAsset('dictionary.json'),options).then(r=>{if(!r.ok)throw new Error('Не удалось загрузить словарь.');return r.json();}),
-      fetch(freshAsset('audio-index.json'),options).then(r=>r.ok?r.json():null).catch(()=>null)
-    ]);
+    const response=await fetch(freshAsset('dictionary.json'),options);
+    if(!response.ok)throw new Error('Не удалось загрузить словарь.');
+    return await response.json();
   }finally{clearTimeout(timeout);controller.abort();}
 }
-function installCollection(data,audioIndex,initial){
+function installCollection(data,initial){
   const info=data?.metadata,cards=data?.cards;
   if(!info||!Number.isInteger(info.count)||!Array.isArray(cards)||cards.length!==info.count||
     typeof info.from!=='string'||typeof info.through!=='string'||cards.some(c=>!c||
@@ -315,10 +308,6 @@ function installCollection(data,audioIndex,initial){
     collectionSignature=signature;
   }
   if(initial)loadProgress();
-  // A temporary audio-index failure keeps recordings already known to the app.
-  const nextSoftIds=validateSoftVoiceManifest(audioIndex,new Set(byId.keys()));
-  if(nextSoftIds&&[...audioIds].every(id=>nextSoftIds.has(id))){audioIds=nextSoftIds;voiceLoadStatus.set(SOFT_VOICE_URI,'ready');}
-  else if(!audioIds.size)voiceLoadStatus.set(SOFT_VOICE_URI,'unavailable');
   refreshVoices();updateAudioButtons();
   $('source-info').textContent=`Все ${metadata.count.toLocaleString('ru-RU')} записи из вашего Englex за ${formatDate(metadata.from)}–${formatDate(metadata.through)}. Переводы сохранены из исходного словаря; транскрипция показана там, где она была в экспорте.`;
   $('collection-note').textContent=`Englex · ${formatDate(metadata.from)}–${formatDate(metadata.through)}`;
@@ -336,9 +325,6 @@ let voiceManifestRequest=null;
 function refreshVoiceManifests(){
   if(voiceManifestRequest)return voiceManifestRequest;
   const manifests=[
-    {uri:SOFT_VOICE_URI,path:SOFT_VOICE_MANIFEST,validate:validateSoftVoiceManifest,previous:()=>audioIds,install:next=>{audioIds=next;}},
-    {uri:CHONISHVILI_A_VOICE_URI,path:CHONISHVILI_A_MANIFEST,validate:validateChonishviliAManifest,previous:()=>chonishviliAIds,install:next=>{chonishviliAIds=next;}},
-    {uri:CHONISHVILI_A_VOICE_URI,path:CHONISHVILI_CLEAN_MANIFEST,validate:validateChonishviliCleanManifest,previous:()=>chonishviliCleanIds,install:next=>{chonishviliCleanIds=next;}},
     {uri:ENGLEX_AI_VOICE_URI,path:ENGLEX_AI_MANIFEST,validate:validateEnglexAIManifest,previous:()=>new Set(englexRecordings.keys()),install:next=>{englexRecordings=next;}},
     {uri:ENGLEX_AI_VOICE_URI,path:ENGLEX_RYAN_MANIFEST,validate:validateEnglexRyanManifest,previous:()=>englexRyanIds,install:next=>{englexRyanIds=next;}}
   ];
@@ -371,7 +357,7 @@ function refreshCollection(initial=false){
   if(!initial&&(!metadata||document.visibilityState==='hidden'||navigator.onLine===false||
     Date.now()-lastCollectionAttempt<COLLECTION_REFRESH_DELAY))return Promise.resolve();
   lastCollectionAttempt=Date.now();
-  collectionRequest=fetchCollection().then(([data,audioIndex])=>{installCollection(data,audioIndex,initial);void refreshVoiceManifests();}).finally(()=>{collectionRequest=null;});
+  collectionRequest=fetchCollection().then(data=>{installCollection(data,initial);void refreshVoiceManifests();}).finally(()=>{collectionRequest=null;});
   return collectionRequest;
 }
 function refreshWhenActive(){

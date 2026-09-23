@@ -17,11 +17,11 @@
 .audio-status:empty { display: none; }
 .app-footer { padding-top: 10px; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
 
-/* Each voice is a real button: the chosen state is available to assistive technology. */
+/* Keep the active Ryan voice visible with the same accessible touch target. */
 .card-voice { margin-top: 12px; gap: 4px; }
 .voice-segments {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 4px;
   padding: 3px;
   min-width: 0;

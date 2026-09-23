@@ -31,10 +31,10 @@ export function libraryJobs({eventName, event, dictionaryChanged = false}) {
   const jobs = [];
   const message = event.head_commit?.message || '';
   if (message.startsWith('Run English accent trial [fish-en-gb-v1]')) jobs.push({voice: 'english', mode: 'trial'});
-  // Existing Englex sync messages retain their marker; the user's current
-  // accepted choice is A, so automatic imports no longer extend the old voice.
-  if (dictionaryChanged || message.startsWith('Run Chonishvili A dictionary [fish-a-v1]') ||
-      message.startsWith('Run accepted Fish dictionary [fish-all-v1]')) jobs.push({voice: 'a', mode: 'full'});
+  // Ryan is now the only active voice. Dictionary imports and retired sync
+  // markers must never start archived Choni generation. Keep explicit manual
+  // tooling available without changing or deleting its existing recordings.
+  if (message.startsWith('Run Chonishvili A dictionary [fish-a-v1]')) jobs.push({voice: 'a', mode: 'full'});
   return jobs.map(job => ({...job, continuation: 0}));
 }
 
