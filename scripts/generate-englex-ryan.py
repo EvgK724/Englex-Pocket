@@ -17,7 +17,7 @@ import time
 import uuid
 from email.utils import parsedate_to_datetime
 
-EDGE_TTS_VERSION = "7.2.8"
+EDGE_TTS_VERSION = "7.3.1"
 VOICE = "en-GB-RyanNeural"
 INDEX = "englex-ryan-index.json"
 AUDIO = "englex-ryan"
@@ -152,7 +152,7 @@ async def synthesize_edge(text):
     # Use the standard client unchanged; no private Englex API, custom headers,
     # proxy rotation, certificate weakening, paid fallback or voice substitution.
     if importlib.metadata.version("edge-tts") != EDGE_TTS_VERSION:
-        raise ValueError("Install the reviewed edge-tts==7.2.8 version.")
+        raise ValueError(f"Install the reviewed edge-tts=={EDGE_TTS_VERSION} version.")
     import edge_tts
     voice = edge_tts.Communicate(text, VOICE, rate="+0%", volume="+0%", pitch="+0Hz",
                                 connect_timeout=15, receive_timeout=45)
