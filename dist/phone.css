@@ -96,7 +96,7 @@ html { -webkit-text-size-adjust: 100%; }
   .collection-done { padding: 0 20px 16px; }
 }
 
-@media (max-width: 1024px) and (max-height: 600px) and (pointer: coarse) {
+@media (max-width: 1024px) and (max-height: 600px) and (orientation: landscape) and (pointer: coarse) {
   .app-header { min-height: 54px; }
   .app-footer { display: none; }
   .card-stage { display: grid; grid-template-columns: minmax(0, 1fr) minmax(170px, .55fr); align-items: stretch; }

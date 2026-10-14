@@ -171,7 +171,6 @@ function voiceData(){return {englexRecordings,englexRyanIds};}
 function selectedVoice(){return VOICE_OPTIONS.find(voice=>voice.uri===state.voiceURI)||VOICE_OPTIONS[0];}
 function refreshVoices(){
   const select=$('voice-select');select.replaceChildren(...VOICE_OPTIONS.map(voice=>new Option(voice.label,voice.uri)));select.value=state.voiceURI;
-  document.querySelectorAll('[data-card-voice]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.cardVoice===state.voiceURI)));
   updateCardVoiceNote();updateVoiceCoverage();
 }
 // A failed request is retryable; it does not remove a published Ryan recording.
@@ -260,7 +259,6 @@ function bindEvents(){
   $('collection-open').addEventListener('click',openCollection);
   $('collection-apply').addEventListener('click',closeCollection);
   $('voice-select').addEventListener('change',()=>selectVoice($('voice-select').value));
-  document.querySelectorAll('[data-card-voice]').forEach(button=>button.addEventListener('click',()=>selectVoice(button.dataset.cardVoice)));
   $('speech-rate').addEventListener('input',()=>{state.rate=Number($('speech-rate').value);$('rate-label').textContent=state.rate.toLocaleString('ru-RU')+'×';save();});
   $('export-progress').addEventListener('click',()=>{const url=URL.createObjectURL(new Blob([JSON.stringify({...progress(),exportedAt:new Date().toISOString()},null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='englex-pocket-progress.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);$('settings-status').textContent='Копия содержит ваши отметки и избранное.';});
   $('import-open').addEventListener('click',()=>$('import-progress').click());
