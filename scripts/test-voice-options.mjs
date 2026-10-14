@@ -161,6 +161,7 @@ async function uiContext(preferred=ENGLEX_AI_VOICE_URI){
   node('card-voice-buttons').querySelectorAll=selector=>selector==='[data-card-voice]'?voiceButtons:[];
   const context={state:{voiceURI:preferred,cards:[{id:a},{id:b}],rate:.9},audioIds:new Set([a,b]),chonishviliAIds:new Set(),chonishviliCleanIds:new Set(),englexRecordings:new Map(),englexRyanIds:new Set(),voiceLoadStatus:new Map(),failedRecordings:new Set(),VOICE_OPTIONS,ENGLEX_AI_VOICE_URI,CHONISHVILI_A_VOICE_URI,SOFT_VOICE_URI,voiceCardIds,recordingForVoice,
     byId:new Map([[a,{id:a,word:'First recording'}],[b,{id:b,word:'Current phrase'}]]),current:()=>({id:b,word:'Current phrase'}),$:node,document,Option:function(label,value){this.label=label;this.value=value;},assetUrl:path=>path,speechText:word=>word,
+    refreshVoiceManifests(){context.manifestRefreshes=(context.manifestRefreshes||0)+1;return Promise.resolve();},
     save(){this.savedURI=this.state.voiceURI;},recordedSpeech:{stop(){},play(path,callbacks){context.played=path;context.playbackCallbacks=callbacks;}}
   };
   context.save=()=>{context.savedURI=context.state.voiceURI;};
@@ -246,7 +247,7 @@ test('play starts synchronously from the click handler and failure never plays a
   assert.match(node('audio-status').textContent,/Ryan: Current phrase/);
   context.playbackCallbacks.onFinish();
   context.playbackCallbacks.onError();
-  assert.equal(node('speak-front').disabled,true);
+  assert.equal(node('speak-front').disabled,false,'a failed request must allow another user click');
   assert.equal(context.played,`audio/englex-ai/${b}.mp3`,'soft recording available but not substituted');
   assert.equal(node('audio-reset').hidden,false);
 });
@@ -261,7 +262,7 @@ function attachRealPlayer(context){
   return media;
 }
 
-test('real player failure clears busy state and reset makes the same speaker retryable',async()=>{
+test('real player failure clears busy state and the same speaker retries Ryan without a reset',async()=>{
   const {context,node}=await uiContext(ENGLEX_AI_VOICE_URI);
   context.englexRecordings.set(b,`audio/englex-ai/${b}.mp3`);
   const media=attachRealPlayer(context);
@@ -269,18 +270,50 @@ test('real player failure clears busy state and reset makes the same speaker ret
   assert.equal(node('speak-front').getAttribute('aria-busy'),'true');
   media[0].onerror();
   assert.equal(node('speak-front').getAttribute('aria-busy'),undefined,'RecordedSpeech calls onFinish before onError');
-  assert.equal(node('speak-front').disabled,true,'failed record is unavailable until reset');
-  runInNewContext('resetSpeech();',context);
-  assert.equal(node('speak-front').getAttribute('aria-busy'),undefined);
-  assert.equal(node('speak-front').disabled,false);
-  assert.equal(context.failedRecordings.size,0);
+  assert.equal(node('speak-front').disabled,false,'a temporary network failure must not lock the speaker');
+  assert.match(node('card-voice-note').textContent,/динамик ещё раз/);
   runInNewContext('pronounce(current(),$("speak-front"));',context);
   assert.equal(media.length,2);
+  assert.match(media[1].src,new RegExp(`^audio/englex-ai/${b}\\.mp3\\?retry=\\d+$`));
   media[1].onplaying();
+  assert.equal(context.failedRecordings.size,0,'successful playback clears the failure');
   assert.match(node('audio-status').textContent,/Ryan: Current phrase/);
   media[1].onended();
   assert.equal(node('speak-front').disabled,false);
   assert.equal(node('speak-front').getAttribute('aria-busy'),undefined);
+});
+
+test('manual audio refresh loads a newly published index and retains retry cache busting',async()=>{
+  const {context,node}=await uiContext(ENGLEX_AI_VOICE_URI);
+  runInNewContext('refreshVoices();updateAudioButtons();',context);
+  assert.equal(node('speak-front').disabled,true,'missing Ryan audio still never falls back');
+  assert.equal(node('audio-reset').hidden,false,'a missing index has an explicit recovery control');
+  assert.equal(node('audio-reset').textContent,'Обновить озвучку');
+  context.refreshVoiceManifests=()=>{context.manifestRefreshes=(context.manifestRefreshes||0)+1;context.englexRyanIds.add(b);context.updateAudioButtons();return Promise.resolve();};
+  runInNewContext('resetSpeech();',context);
+  assert.equal(context.manifestRefreshes,1);
+  assert.equal(node('speak-front').disabled,false);
+  assert.equal(node('audio-reset').hidden,true);
+  const media=attachRealPlayer(context);
+  runInNewContext('pronounce(current(),$("speak-front"));',context);
+  media[0].onerror();
+  runInNewContext('resetSpeech();pronounce(current(),$("speak-front"));',context);
+  assert.match(media[1].src,new RegExp(`^audio/englex-ryan/${b}\\.mp3\\?v=ryan-v1&retry=\\d+$`));
+  media[1].onplaying();media[1].onended();
+  assert.equal(context.failedRecordings.size,0);
+});
+
+test('returning online refreshes audio even when dictionary refresh is throttled',async()=>{
+  const app=await readFile(new URL('../dist/app.js',import.meta.url),'utf8');
+  const context={metadata:{count:2},document:{visibilityState:'visible'},navigator:{onLine:true},audioRefreshes:0,collectionRefreshes:0};
+  context.refreshCollection=()=>{context.collectionRefreshes++;return Promise.resolve();};
+  context.refreshVoiceManifests=()=>{context.audioRefreshes++;return Promise.resolve();};
+  runInNewContext(app.slice(app.indexOf('function refreshWhenActive(){'),app.indexOf('async function init(){')),context);
+  runInNewContext('refreshWhenActive();',context);
+  assert.equal(context.audioRefreshes,1);
+  context.document.visibilityState='hidden';runInNewContext('refreshWhenActive();',context);
+  context.document.visibilityState='visible';context.navigator.onLine=false;runInNewContext('refreshWhenActive();',context);
+  assert.equal(context.audioRefreshes,1,'hidden or offline app does not start audio requests');
 });
 
 

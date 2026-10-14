@@ -174,7 +174,8 @@ function refreshVoices(){
   document.querySelectorAll('[data-card-voice]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.cardVoice===state.voiceURI)));
   updateCardVoiceNote();updateVoiceCoverage();
 }
-function getRecording(card){return recordingForVoice({cardId:card?.id,voiceURI:state.voiceURI,...voiceData(),failedRecordings});}
+// A failed request is retryable; it does not remove a published Ryan recording.
+function getRecording(card){return recordingForVoice({cardId:card?.id,voiceURI:state.voiceURI,...voiceData()});}
 function canPlayRecording(card){return !!getRecording(card);}
 function updateVoiceCoverage(){
   const count=n=>n.toLocaleString('ru-RU');
@@ -186,7 +187,7 @@ function updateCardVoiceNote(){
   const recording=getRecording(current());
   let status=recording?'Выбран для всей коллекции.':voiceLoadStatus.get(state.voiceURI)==='loading'?'Загружаем доступные записи…':'Запись Ryan для этой карточки пока недоступна.';
   const candidate=recordingForVoice({cardId:current()?.id,voiceURI:state.voiceURI,...voiceData()});
-  if(candidate&&failedRecordings.has(candidate.key))status='Запись не загрузилась. Нажмите «Перезапустить звук».';
+  if(candidate&&failedRecordings.has(candidate.key))status='Запись не загрузилась. Нажмите на динамик ещё раз.';
   $('card-voice-note').textContent=status;
   $('card-voice-note').hidden=status==='Выбран для всей коллекции.';
 }
@@ -207,6 +208,11 @@ function updateAudioButtons(){
   const sampleRecording=getRecording(sample);
   const sourceNote=sampleRecording?.source==='generated'?' · синтез Ryan (Microsoft Edge)':sampleRecording?.source==='englex-ai'?' · оригинальная запись Englex':'';
   $('voice-test-note').textContent=sample?`Будет звучать: ${speechText(sample.word)}${sourceNote}`:'Записей выбранного голоса пока нет.';
+  const recording=getRecording(current());
+  if(!recordedSpeech.job){
+    $('audio-reset').textContent=recording?'Перезапустить звук':'Обновить озвучку';
+    $('audio-reset').hidden=!current()||!!recording&&!failedRecordings.has(recording.key);
+  }
   updateCardVoiceNote();
 }
 function pronounce(card,button){
@@ -217,17 +223,22 @@ function pronounce(card,button){
   recordedSpeech.stop();
   button.disabled=true;button.setAttribute('aria-busy','true');$('audio-reset').hidden=false;
   $('audio-status').textContent=`Загружаем ${recording.label}: ${speechText(card.word)}…`;
-  recordedSpeech.play(assetUrl(recording.path),{rate:state.rate,
-    onStart:()=>{$('audio-status').textContent=`${recording.label}: ${speechText(card.word)}`;},
+  // Bypass a cached failed response on the next user-initiated attempt.
+  const path=failedRecordings.has(recording.key)?`${recording.path}${recording.path.includes('?')?'&':'?'}retry=${Date.now()}`:recording.path;
+  recordedSpeech.play(assetUrl(path),{rate:state.rate,
+    onStart:()=>{failedRecordings.delete(recording.key);updateCardVoiceNote();$('audio-status').textContent=`${recording.label}: ${speechText(card.word)}`;},
     onFinish:()=>{button.removeAttribute('aria-busy');button.disabled=false;$('audio-status').textContent='';$('audio-reset').hidden=true;updateAudioButtons();},
     onError:()=>{failedRecordings.add(recording.key);updateAudioButtons();
-      $('audio-status').textContent='Не удалось загрузить запись Ryan. Проверьте подключение и нажмите «Перезапустить звук».';$('audio-reset').hidden=false;
+      $('audio-status').textContent='Не удалось загрузить запись Ryan. Проверьте подключение и нажмите на динамик ещё раз.';$('audio-reset').hidden=false;
     }
   });
 }
 function resetSpeech(){
-  recordedSpeech.stop();failedRecordings.clear();
-  refreshVoices();updateAudioButtons();$('audio-reset').hidden=true;$('audio-status').textContent='Нажмите на динамик рядом с английским выражением.';
+  recordedSpeech.stop();
+  refreshVoices();updateAudioButtons();$('audio-status').textContent='Нажмите на динамик рядом с английским выражением.';
+  // New cards may arrive before their audio index, or the index may time out.
+  // An explicit retry must refresh it immediately, not wait for the next timer.
+  void refreshVoiceManifests();
 }
 function bindEvents(){
   $('flip').addEventListener('click',()=>flip());$('flashcard').addEventListener('click',e=>{if(e.target.closest('button')||getSelection()?.toString())return;flip();});
@@ -330,7 +341,7 @@ function refreshVoiceManifests(){
   ];
   const sourceStates=new Map(manifests.map(manifest=>[manifest.path,'loading']));
   voiceManifestRequest=Promise.allSettled(manifests.map(async manifest=>{
-    const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),8000);
+    const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),15_000);
     try{
       const response=await fetch(`${assetUrl(manifest.path)}?sync=${Date.now()}`,{cache:'no-store',signal:controller.signal});
       if(!response.ok)throw new Error('Audio index unavailable');
@@ -363,6 +374,8 @@ function refreshCollection(initial=false){
 function refreshWhenActive(){
   // Connectivity or deployment errors leave the currently open collection usable.
   void refreshCollection().catch(()=>{});
+  // Audio recovery is independent of the dictionary refresh throttle.
+  if(metadata&&document.visibilityState!=='hidden'&&navigator.onLine!==false)void refreshVoiceManifests();
 }
 async function init(){
   try{await refreshCollection(true);}
