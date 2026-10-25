@@ -12,11 +12,11 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon-192.png" type="image/png">
   <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
-  <link rel="stylesheet" href="./styles.css">
-  <link rel="stylesheet" href="./nocturne.css?v=compact-controls-20261014">
-  <link rel="stylesheet" href="./phone.css?v=compact-controls-20261014">
-  <link rel="stylesheet" href="./comfort.css?v=compact-controls-20261014">
-  <script type="module" src="./app.js?v=compact-controls-20261014"></script>
+  <link rel="stylesheet" href="./styles.css?v=examples-20261025">
+  <link rel="stylesheet" href="./nocturne.css?v=examples-20261025">
+  <link rel="stylesheet" href="./phone.css?v=examples-20261025">
+  <link rel="stylesheet" href="./comfort.css?v=examples-20261025">
+  <script type="module" src="./app.js?v=examples-20261025"></script>
 </head>
 <body>
   <a class="skip-link" href="#study">К карточке</a>
@@ -55,7 +55,16 @@
               </div>
               <div id="card-back" class="card-face card-back" inert aria-hidden="true">
                 <div class="card-toolbar"><span class="type-label">Значение</span><button id="star-back" class="icon-button card-star" aria-label="Добавить в избранное" aria-pressed="false"><span data-icon="star"></span></button></div>
-                <div class="meaning-area"><div class="word-line"><p id="back-word" class="back-word" lang="en"></p><button id="speak-back" class="audio-button back-audio" aria-label="Озвучить английское выражение"><span data-icon="volume"></span></button></div><div id="card-translation" class="card-translation"></div></div>
+                <div class="meaning-area"><div class="word-line"><p id="back-word" class="back-word" lang="en"></p><button id="speak-back" class="audio-button back-audio" aria-label="Озвучить английское выражение"><span data-icon="volume"></span></button></div><div id="card-translation" class="card-translation"></div>
+                  <section id="card-example" class="card-example" aria-labelledby="example-label" hidden>
+                    <div class="example-heading"><p id="example-label">Учебный пример <span>· B1–B2</span></p><button id="speak-example" class="audio-button example-audio" aria-label="Озвучить пример" aria-describedby="example-status" disabled><span data-icon="volume"></span></button></div>
+                    <p id="example-text" class="example-text" lang="en"></p>
+                    <button id="example-reveal" class="text-button example-reveal" aria-controls="example-translation" aria-expanded="false">Показать перевод примера</button>
+                    <p id="example-translation" class="example-translation" hidden></p>
+                    <p id="example-note" class="example-note" hidden></p>
+                    <p id="example-status" class="example-status" role="status" aria-live="polite"></p>
+                  </section>
+                </div>
                 <div class="card-bottom"><span id="card-lists"></span><span id="card-state"></span></div>
               </div>
             </div>

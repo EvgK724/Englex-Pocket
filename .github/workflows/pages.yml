@@ -15,26 +15,55 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.readiness.outputs.ready }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - name: Test dictionary imports
+        run: node --test scripts/test-import-englex.mjs scripts/test-voice-options.mjs scripts/test-recorded-speech.mjs scripts/test-fish-voice.mjs scripts/test-search.mjs scripts/test-search-session.mjs tests/import-englex-audio.test.mjs scripts/test-examples.mjs scripts/test-example-ui.mjs
+
+      - name: Check application
+        run: node scripts/check-static.mjs
+
+      - name: Check whether all current Ryan recordings are ready
+        id: readiness
+        run: |
+          node --input-type=module <<'JS'
+          import {appendFileSync} from 'node:fs';
+          import {activeAssets} from './scripts/prepare-pages.mjs';
+          const status = await activeAssets('dist', {requireReady: false});
+          const ready = !status.missingWords.length && !status.missingExamples.length;
+          appendFileSync(process.env.GITHUB_OUTPUT, `ready=${ready}\n`);
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY, ready
+            ? `All ${status.cards} cards and their examples have matching Ryan audio.\n`
+            : `Waiting for Ryan: ${status.missingWords.length} words and ${status.missingExamples.length} examples. The existing site stays available; generation dispatches a new publication after completion.\n`);
+          JS
+
+      - name: Stage only current active Ryan assets (archives stay in Git)
+        if: ${{ steps.readiness.outputs.ready == 'true' }}
+        run: node scripts/prepare-pages.mjs .pages-site
+
+      - uses: actions/configure-pages@v5
+        if: ${{ steps.readiness.outputs.ready == 'true' }}
+
+      - uses: actions/upload-pages-artifact@v4
+        if: ${{ steps.readiness.outputs.ready == 'true' }}
+        with:
+          path: .pages-site
+
   deploy:
+    needs: prepare
+    if: ${{ needs.prepare.outputs.ready == 'true' }}
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v6
-
-      - name: Test dictionary imports
-        run: node --test scripts/test-import-englex.mjs scripts/test-voice-options.mjs scripts/test-recorded-speech.mjs scripts/test-fish-voice.mjs scripts/test-search.mjs scripts/test-search-session.mjs tests/import-englex-audio.test.mjs
-
-      - name: Check application
-        run: node scripts/check-static.mjs
-
-      - uses: actions/configure-pages@v5
-
-      - uses: actions/upload-pages-artifact@v4
-        with:
-          path: dist
-
       - name: Publish website
         id: deployment
         uses: actions/deploy-pages@v4

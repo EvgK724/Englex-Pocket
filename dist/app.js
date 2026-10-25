@@ -1,4 +1,5 @@
-import {normalizeText, speechText, selectCards, sanitizeProgress, formatDate} from './core.mjs?v=ux-comfort-1';
+import {normalizeText, speechText, selectCards, sanitizeProgress, formatDate} from './core.mjs?v=examples-20261025';
+import {EXAMPLES_MANIFEST, EXAMPLES_AUDIO_MANIFEST, exampleForCard, validateExamples, validateExampleAudio} from './examples.mjs?v=examples-20261025';
 import {RecordedSpeech} from './recorded-speech.mjs';
 import {assetUrl} from './paths.mjs';
 import {VOICE_OPTIONS, VOICE_PREFERENCE_VERSION, ENGLEX_AI_VOICE_URI, ENGLEX_AI_MANIFEST, ENGLEX_RYAN_MANIFEST, migrateVoicePreference, validateEnglexAIManifest, validateEnglexRyanManifest, voiceCardIds, recordingForVoice} from './voice-options.mjs?v=ryan-only-1';
@@ -32,6 +33,7 @@ let byId=new Map(),metadata=null, toastTimer,storageWarning=false;
 let currentId=null;
 let searchBookmark=null;
 let englexRecordings=new Map(),englexRyanIds=new Set();
+let examples=new Map(),exampleRecordings=new Map(),exampleManifestRequest=null,shownExampleKey=null,playingExampleKey=null;
 const voiceLoadStatus=new Map(VOICE_OPTIONS.map(voice=>[voice.uri,'loading']));
 const COLLECTION_REFRESH_DELAY=60_000;
 let collectionRequest=null,lastCollectionAttempt=0,collectionSignature='';
@@ -52,13 +54,13 @@ function syncInstalledState(){
 }
 function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,3000);}
 function current(){return state.filtered[state.index] || null;}
-function progress(){return {version:1,recordedVoiceVersion:VOICE_PREFERENCE_VERSION,stars:[...state.stars],ratings:state.ratings,currentId:searchBookmark?.id || current()?.id || currentId,rate:state.rate,voiceURI:state.voiceURI,kind:state.kind,sort:state.sort};}
+function progress(){return {version:1,recordedVoiceVersion:VOICE_PREFERENCE_VERSION,stars:[...state.stars],ratings:state.ratings,currentId:searchBookmark?.id || state.pendingCurrentId || current()?.id || currentId,rate:state.rate,voiceURI:state.voiceURI,kind:state.kind,sort:state.sort,deck:state.deck || 'all'};}
 function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(progress()));}catch{if(!storageWarning){toast('Браузер не сохраняет прогресс. Копию можно скачать в настройках.');storageWarning=true;}}}
-function loadProgress(){try{const raw=JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');if(raw){const p=sanitizeProgress(raw,new Set(byId.keys()));state.stars=new Set(p.stars);state.ratings=p.ratings;state.rate=p.rate;state.voiceURI=migrateVoicePreference(raw);state.kind=p.kind;state.sort=p.sort;currentId=p.currentId;}}catch{toast('Сохранённый прогресс недоступен. Словарь можно использовать.');}}
+function loadProgress(){try{const raw=JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');if(raw){const p=sanitizeProgress(raw,new Set(byId.keys()),{preserveUnknown:true});state.stars=new Set(p.stars);state.ratings=p.ratings;state.rate=p.rate;state.voiceURI=migrateVoicePreference(raw);state.kind=p.kind;state.sort=p.sort;state.deck=p.deck;currentId=p.currentId;state.pendingCurrentId=p.currentId&&!byId.has(p.currentId)?p.currentId:null;}}catch{toast('Сохранённый прогресс недоступен. Словарь можно использовать.');}}
 function updateCounts(){
   const count=n=>n.toLocaleString('ru-RU');
-  $('total-count').textContent=count(state.cards.length);$('all-count').textContent=count(state.cards.length);$('star-count').textContent=count(state.stars.size);
-  const values=Object.values(state.ratings);
+  $('total-count').textContent=count(state.cards.length);$('all-count').textContent=count(state.cards.length);$('star-count').textContent=count([...state.stars].filter(id=>byId.has(id)).length);
+  const values=Object.entries(state.ratings).filter(([id])=>byId.has(id)).map(([,value])=>value);
   $('review-count').textContent=count(values.filter(v=>v==='review').length);
   $('footer-progress').textContent=values.length ? `Отмечено ${count(values.length)} из ${count(state.cards.length)}` : `${count(state.cards.length)} слов и фраз`;
 }
@@ -102,6 +104,7 @@ function flip(force){
   $('flip').setAttribute('aria-pressed',String(state.flipped));$('flip-label').textContent=state.flipped?'Вернуться к английскому':'Показать перевод';
   $('rating-row').hidden=!state.flipped;
   $('progress-note').textContent=state.flipped?'Оцените, насколько легко вспомнили':'Сначала вспомните значение';
+  scheduleCardTextFit();
 }
 function renderCard(){
   recordedSpeech.stop();
@@ -111,6 +114,7 @@ function renderCard(){
   $('deck-label').textContent=state.query?'Результаты поиска':({all:'Вся коллекция',starred:'Избранное',review:'К повторению'}[state.deck]);
   $('shuffle').disabled=state.filtered.length<2;
   if(!c){
+    renderExample();
     $('empty-title').textContent=state.query?'Ничего не найдено':state.deck==='starred'?'Соберите свою колоду':state.deck==='review'?'Здесь будет повторение':'Нет карточек этого типа';
     $('empty-text').textContent=state.query?'Попробуйте часть английского слова или русский перевод.':state.deck==='starred'?'Нажимайте звёздочку на карточках, к которым хотите вернуться.':state.deck==='review'?'Откройте перевод и отметьте «Повторить», если значение было трудно вспомнить.':'Измените фильтр, чтобы продолжить.';
     return;
@@ -126,6 +130,7 @@ function renderCard(){
   for(const id of ['star-front','star-back']){$(id).setAttribute('aria-pressed',String(state.stars.has(c.id)));$(id).setAttribute('aria-label',state.stars.has(c.id)?'Убрать из избранного':'Добавить в избранное');}
   for(const id of ['speak-front','speak-back'])$(id).setAttribute('aria-label',`Озвучить ${speechText(c.word)}`);
   updateAudioButtons();updateCardVoiceNote();
+  renderExample();
   $('previous').disabled=state.index===0;$('next').disabled=state.index===state.filtered.length-1;
   scheduleCardTextFit();
   save();
@@ -134,7 +139,7 @@ function renderResults(){
   const box=$('search-results');box.replaceChildren();box.hidden=!state.query;
   if(!state.query)return;
   const label=document.createElement('p');label.className='result-label';label.textContent=`Найдено: ${state.filtered.length.toLocaleString('ru-RU')}`;box.append(label);
-  state.filtered.slice(0,15).forEach(c=>{const b=document.createElement('button');b.className='search-result';const w=document.createElement('strong');w.lang='en';w.textContent=c.word.replace(/[{}]/g,'');const t=document.createElement('span');t.textContent=c.translation;b.append(w,t);b.addEventListener('click',()=>{state.index=state.filtered.findIndex(x=>x.id===c.id);renderCard();closeCollection();});box.append(b);});
+  state.filtered.slice(0,15).forEach(c=>{const b=document.createElement('button');b.className='search-result';const w=document.createElement('strong');w.lang='en';w.textContent=c.word.replace(/[{}]/g,'');const t=document.createElement('span');t.textContent=c.translation;b.append(w,t);b.addEventListener('click',()=>{state.pendingCurrentId=null;state.index=state.filtered.findIndex(x=>x.id===c.id);renderCard();closeCollection();});box.append(b);});
   if(state.filtered.length>15){const more=document.createElement('p');more.className='result-label';more.textContent='Первые 15 совпадений. Остальные доступны стрелками у карточки.';box.append(more);}
 }
 function applyFilters(preferId=null,bookmark=null){
@@ -158,7 +163,7 @@ function setSearchQuery(value){
   applyFilters(bookmark?.id,bookmark);
   if(bookmark?.flipped&&current()?.id===bookmark.id)flip(true);
 }
-function move(delta){const index=state.index+delta;if(index>=0&&index<state.filtered.length){state.index=index;renderCard();}}
+function move(delta){const index=state.index+delta;if(index>=0&&index<state.filtered.length){state.pendingCurrentId=null;state.index=index;renderCard();}}
 function mark(value){
   const c=current();if(!c||!state.flipped)return;
   state.ratings[c.id]=value;save();updateCounts();
@@ -166,6 +171,81 @@ function mark(value){
   else if(state.index<state.filtered.length-1)move(1);else{renderCard();toast('Вы дошли до конца выбранной колоды.');}
 }
 function toggleStar(){const c=current();if(!c)return;const was=state.stars.has(c.id);if(was)state.stars.delete(c.id);else state.stars.add(c.id);save();updateCounts();if(state.deck==='starred'&&was){const old=state.index;state.filtered=state.filtered.filter(x=>x.id!==c.id);state.index=Math.min(old,Math.max(0,state.filtered.length-1));renderResults();renderCard();}else{for(const id of ['star-front','star-back']){$(id).setAttribute('aria-pressed',String(!was));$(id).setAttribute('aria-label',was?'Добавить в избранное':'Убрать из избранного');}}}
+
+function currentExample(){return exampleForCard(current(),examples);}
+function currentExampleRecording(){
+  const example=currentExample(),recording=exampleRecordings.get(current()?.id);
+  return example&&recording?.textSha256===example.textSha256?recording:null;
+}
+function renderExample(){
+  const example=currentExample();
+  const key=example?`${current().id}:${example.textSha256}:${example.ru}:${example.note||''}`:null;
+  $('card-example').hidden=!example;
+  if(key!==shownExampleKey){
+    if(playingExampleKey)recordedSpeech.stop();
+    shownExampleKey=key;
+    $('example-translation').hidden=true;
+    $('example-note').hidden=true;
+    $('example-reveal').setAttribute('aria-expanded','false');
+    $('example-reveal').textContent='Показать перевод примера';
+    $('example-status').textContent='';
+  }
+  if(example){
+    $('example-text').textContent=example.en;
+    $('example-translation').textContent=example.ru;
+    $('example-note').textContent=example.note||'';
+    $('speak-example').setAttribute('aria-label',`Озвучить пример: ${example.en}`);
+  }
+  updateExampleAudio();
+}
+function updateExampleAudio(){
+  const button=$('speak-example'),recording=currentExampleRecording();
+  if(button.getAttribute('aria-busy')!=='true')button.disabled=!recording;
+  if(!currentExample())return;
+  if(!recording)$('example-status').textContent='Озвучка Ryan готовится.';
+  else if(failedRecordings.has(recording.key))$('example-status').textContent='Запись не загрузилась. Нажмите динамик ещё раз.';
+  else if(button.getAttribute('aria-busy')!=='true')$('example-status').textContent='';
+}
+function pronounceExample(){
+  const example=currentExample(),recording=currentExampleRecording(),button=$('speak-example');
+  if(!example||!recording||button.disabled)return;
+  recordedSpeech.stop();
+  const key=shownExampleKey;
+  playingExampleKey=key;
+  button.disabled=true;button.setAttribute('aria-busy','true');
+  $('example-status').textContent='Загружаем запись…';
+  const path=failedRecordings.has(recording.key)?`${recording.path}?retry=${Date.now()}`:recording.path;
+  recordedSpeech.play(assetUrl(path),{rate:state.rate,
+    onStart:()=>{failedRecordings.delete(recording.key);if(shownExampleKey===key)$('example-status').textContent='Звучит пример';},
+    onFinish:()=>{playingExampleKey=null;button.removeAttribute('aria-busy');updateExampleAudio();},
+    onError:()=>{failedRecordings.add(recording.key);if(shownExampleKey===key)updateExampleAudio();}
+  });
+}
+async function fetchOptionalJson(path){
+  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),15_000);
+  try{
+    const response=await fetch(`${assetUrl(path)}?sync=${Date.now()}`,{cache:'no-store',signal:controller.signal});
+    if(!response.ok)throw new Error('Optional examples unavailable');
+    return await response.json();
+  }finally{clearTimeout(timeout);}
+}
+function refreshExamples(){
+  if(exampleManifestRequest)return exampleManifestRequest;
+  exampleManifestRequest=(async()=>{
+    const [text,audio]=await Promise.allSettled([fetchOptionalJson(EXAMPLES_MANIFEST),fetchOptionalJson(EXAMPLES_AUDIO_MANIFEST)]);
+    if(text.status==='fulfilled'){
+      const next=await validateExamples(text.value,byId);
+      if(next)examples=next;
+    }
+    if(audio.status==='fulfilled'){
+      const next=validateExampleAudio(audio.value,examples);
+      if(next)exampleRecordings=next;
+    }
+    // An old index never enables an old sentence after the text has changed.
+    renderExample();
+  })().catch(()=>{}).finally(()=>{exampleManifestRequest=null;});
+  return exampleManifestRequest;
+}
 
 function voiceData(){return {englexRecordings,englexRyanIds};}
 function selectedVoice(){return VOICE_OPTIONS.find(voice=>voice.uri===state.voiceURI)||VOICE_OPTIONS[0];}
@@ -201,6 +281,7 @@ function selectVoice(value){
   state.voiceURI=value;resetSpeech();save();
 }
 function updateAudioButtons(){
+  updateExampleAudio();
   for(const id of ['speak-front','speak-back'])if($(id).getAttribute('aria-busy')!=='true')$(id).disabled=!canPlayRecording(current());
   if($('test-voice').getAttribute('aria-busy')!=='true')$('test-voice').disabled=!voiceTestCard();
   const sample=voiceTestCard();
@@ -238,21 +319,24 @@ function resetSpeech(){
   // New cards may arrive before their audio index, or the index may time out.
   // An explicit retry must refresh it immediately, not wait for the next timer.
   void refreshVoiceManifests();
+  void refreshExamples();
 }
 function bindEvents(){
-  $('flip').addEventListener('click',()=>flip());$('flashcard').addEventListener('click',e=>{if(e.target.closest('button')||getSelection()?.toString())return;flip();});
+  $('flip').addEventListener('click',()=>flip());$('flashcard').addEventListener('click',e=>{if(e.target.closest('button,#card-example')||getSelection()?.toString())return;flip();});
+  $('speak-example').addEventListener('click',pronounceExample);
+  $('example-reveal').addEventListener('click',()=>{const show=$('example-translation').hidden;$('example-translation').hidden=!show;$('example-note').hidden=!show||!currentExample()?.note;$('example-reveal').setAttribute('aria-expanded',String(show));$('example-reveal').textContent=show?'Скрыть перевод примера':'Показать перевод примера';});
   $('previous').addEventListener('click',()=>move(-1));$('next').addEventListener('click',()=>move(1));
   $('mark-review').addEventListener('click',()=>mark('review'));$('mark-known').addEventListener('click',()=>mark('known'));
   ['star-front','star-back'].forEach(id=>$(id).addEventListener('click',toggleStar));
   ['speak-front','speak-back'].forEach(id=>$(id).addEventListener('click',()=>pronounce(current(),$(id))));
   $('test-voice').addEventListener('click',()=>pronounce(voiceTestCard(),$('test-voice')));
   $('audio-reset').addEventListener('click',resetSpeech);
-  document.querySelectorAll('[data-deck]').forEach(b=>b.addEventListener('click',()=>{state.deck=b.dataset.deck;document.querySelectorAll('[data-deck]').forEach(t=>{t.classList.toggle('active',t===b);t.setAttribute('aria-pressed',String(t===b));});applyFilters();}));
+  document.querySelectorAll('[data-deck]').forEach(b=>b.addEventListener('click',()=>{state.pendingCurrentId=null;state.deck=b.dataset.deck;document.querySelectorAll('[data-deck]').forEach(t=>{t.classList.toggle('active',t===b);t.setAttribute('aria-pressed',String(t===b));});applyFilters();save();}));
   $('search').addEventListener('input',()=>setSearchQuery($('search').value));
-  $('kind-filter').addEventListener('change',()=>{state.kind=$('kind-filter').value;applyFilters();save();});
-  $('sort-order').addEventListener('change',()=>{state.sort=$('sort-order').value;applyFilters();save();});
-  $('clear-filters').addEventListener('click',()=>{state.kind='all';state.deck='all';$('search').value='';$('kind-filter').value='all';document.querySelectorAll('[data-deck]').forEach(button=>{const active=button.dataset.deck==='all';button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));});if(state.query)setSearchQuery('');else applyFilters(current()?.id||currentId);});
-  $('shuffle').addEventListener('click',()=>{for(let i=state.filtered.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[state.filtered[i],state.filtered[j]]=[state.filtered[j],state.filtered[i]];}state.index=0;renderResults();renderCard();toast('Карточки перемешаны');});
+  $('kind-filter').addEventListener('change',()=>{state.pendingCurrentId=null;state.kind=$('kind-filter').value;applyFilters();save();});
+  $('sort-order').addEventListener('change',()=>{state.pendingCurrentId=null;state.sort=$('sort-order').value;applyFilters();save();});
+  $('clear-filters').addEventListener('click',()=>{state.pendingCurrentId=null;state.kind='all';state.deck='all';$('search').value='';$('kind-filter').value='all';document.querySelectorAll('[data-deck]').forEach(button=>{const active=button.dataset.deck==='all';button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));});if(state.query)setSearchQuery('');else applyFilters(current()?.id||currentId);});
+  $('shuffle').addEventListener('click',()=>{state.pendingCurrentId=null;for(let i=state.filtered.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[state.filtered[i],state.filtered[j]]=[state.filtered[j],state.filtered[i]];}state.index=0;renderResults();renderCard();toast('Карточки перемешаны');});
   $('settings-open').addEventListener('click',()=>{refreshVoices();$('settings-dialog').showModal();});
   $('install-help').addEventListener('click',()=>{$('install-dialog').showModal();});
   $('install-open').addEventListener('click',()=>{$('install-dialog').showModal();});
@@ -262,7 +346,7 @@ function bindEvents(){
   $('speech-rate').addEventListener('input',()=>{state.rate=Number($('speech-rate').value);$('rate-label').textContent=state.rate.toLocaleString('ru-RU')+'×';save();});
   $('export-progress').addEventListener('click',()=>{const url=URL.createObjectURL(new Blob([JSON.stringify({...progress(),exportedAt:new Date().toISOString()},null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='englex-pocket-progress.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);$('settings-status').textContent='Копия содержит ваши отметки и избранное.';});
   $('import-open').addEventListener('click',()=>$('import-progress').click());
-  $('import-progress').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>2*1024*1024)throw new Error('Файл слишком большой. Выберите копию прогресса Englex Pocket.');const p=sanitizeProgress(JSON.parse(await file.text()),new Set(byId.keys()));p.stars.forEach(id=>state.stars.add(id));Object.assign(state.ratings,p.ratings);save();applyFilters(current()?.id);$('settings-status').textContent='Прогресс добавлен. Остальные ваши отметки сохранены.';}catch(error){$('settings-status').textContent=error.message || 'Не удалось прочитать копию.';}finally{e.target.value='';}});
+  $('import-progress').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>2*1024*1024)throw new Error('Файл слишком большой. Выберите копию прогресса Englex Pocket.');const p=sanitizeProgress(JSON.parse(await file.text()),new Set(byId.keys()),{preserveUnknown:true});p.stars.forEach(id=>state.stars.add(id));Object.assign(state.ratings,p.ratings);save();applyFilters(current()?.id);$('settings-status').textContent='Прогресс добавлен. Остальные ваши отметки сохранены.';}catch(error){$('settings-status').textContent=error.message || 'Не удалось прочитать копию.';}finally{e.target.value='';}});
   document.addEventListener('keydown',e=>{if($('settings-dialog').open||$('install-dialog').open||$('collection-dialog').open||e.target.closest('input,select,textarea,button,a')||e.ctrlKey||e.metaKey||e.altKey)return;if(e.key===' '){e.preventDefault();flip();}if(e.key==='ArrowRight'){e.preventDefault();move(1);}if(e.key==='ArrowLeft'){e.preventDefault();move(-1);}if(e.key==='/'){e.preventDefault();openCollection();}});
   if(/android/i.test(navigator.userAgent))$('install-steps').replaceChildren(...['В Chrome откройте меню ⋮.','Выберите «Добавить на главный экран» или «Установить приложение».','Подтвердите добавление.'].map(text=>{const li=document.createElement('li');li.textContent=text;return li;}));
 }
@@ -309,7 +393,9 @@ function installCollection(data,initial){
   // A delayed older deployment must never remove cards or their saved progress.
   if(!initial&&state.cards.some(c=>!nextIds.has(c.id)))throw new Error('Получена устаревшая версия словаря.');
   const signature=JSON.stringify(data),changed=signature!==collectionSignature;
-  const preferredId=current()?.id||currentId,wasFlipped=state.flipped;
+  const returningId=state.pendingCurrentId&&nextIds.has(state.pendingCurrentId)?state.pendingCurrentId:null;
+  const preferredId=returningId||current()?.id||currentId,wasFlipped=state.flipped&&!returningId;
+  if(returningId)state.pendingCurrentId=null;
   const added=cards.reduce((n,c)=>n+Number(!byId.has(c.id)),0);
   if(changed){
     state.cards=cards.map((c,order)=>({...c,order,search:normalizeText(`${c.word} ${c.translation} ${c.lists}`)}));
@@ -321,6 +407,7 @@ function installCollection(data,initial){
   $('source-info').textContent=`Все ${metadata.count.toLocaleString('ru-RU')} записи из вашего Englex за ${formatDate(metadata.from)}–${formatDate(metadata.through)}. Переводы сохранены из исходного словаря; транскрипция показана там, где она была в экспорте.`;
   $('collection-note').textContent=`Englex · ${formatDate(metadata.from)}–${formatDate(metadata.through)}`;
   if(initial){
+    document.querySelectorAll('[data-deck]').forEach(button=>{const active=button.dataset.deck===state.deck;button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));});
     $('kind-filter').value=state.kind;$('sort-order').value=state.sort;$('speech-rate').value=state.rate;$('rate-label').textContent=state.rate.toLocaleString('ru-RU')+'×';
     $('load-state').hidden=true;applyFilters(currentId);
   }else if(changed){
@@ -366,7 +453,7 @@ function refreshCollection(initial=false){
   if(!initial&&(!metadata||document.visibilityState==='hidden'||navigator.onLine===false||
     Date.now()-lastCollectionAttempt<COLLECTION_REFRESH_DELAY))return Promise.resolve();
   lastCollectionAttempt=Date.now();
-  collectionRequest=fetchCollection().then(data=>{installCollection(data,initial);void refreshVoiceManifests();}).finally(()=>{collectionRequest=null;});
+  collectionRequest=fetchCollection().then(data=>{installCollection(data,initial);void refreshVoiceManifests();void refreshExamples();}).finally(()=>{collectionRequest=null;});
   return collectionRequest;
 }
 function refreshWhenActive(){
@@ -374,6 +461,7 @@ function refreshWhenActive(){
   void refreshCollection().catch(()=>{});
   // Audio recovery is independent of the dictionary refresh throttle.
   if(metadata&&document.visibilityState!=='hidden'&&navigator.onLine!==false)void refreshVoiceManifests();
+  if(metadata&&document.visibilityState!=='hidden'&&navigator.onLine!==false)void refreshExamples();
 }
 async function init(){
   try{await refreshCollection(true);}

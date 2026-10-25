@@ -64,8 +64,7 @@ html { -webkit-text-size-adjust: 100%; }
   .flip-row, .rating-row, .card-navigation { margin: 0; }
   .flip-button, .rating-row button { min-height: 50px; }
   .flip-button kbd, .search-box kbd { display: none; }
-  /* Keep the controls in place when revealing the translation. */
-  .phone-layout .rating-row[hidden] { display: flex !important; visibility: hidden; pointer-events: none; }
+  .phone-layout .rating-row[hidden] { display: none !important; }
   .card-navigation .icon-button { min-width: 48px; min-height: 48px; }
   .card-navigation > span { font-size: .82rem; }
   .audio-status { font-size: .82rem; margin-top: 8px; }

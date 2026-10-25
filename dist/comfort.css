@@ -20,13 +20,38 @@
 /* Audio notices take space only when a recording needs attention. */
 .card-voice-note { margin-top: 12px; color: var(--muted); font-size: .8rem; line-height: 1.35; overflow-wrap: anywhere; }
 
+/* Explicitly hide the other face: Safari can paint mirrored 3D grid faces.
+   Only the visible face contributes height, including long translations. */
+.card-inner, .flashcard.flipped .card-inner, .card-back { transform: none; transform-style: flat; }
+.card-inner { transition: none; }
+.card-face[aria-hidden="true"] { display: none !important; }
+.card-face { backface-visibility: visible; -webkit-backface-visibility: visible; }
+#card-word, .back-word { color: #e3b18a; font-weight: 600; }
+.card-translation { color: var(--ink); font-weight: 500; font-size: clamp(1.3rem, 2.2vw, 1.65rem); line-height: 1.5; }
+.card-example { width: 100%; padding-top: 16px; border-top: 1px solid #8a76524a; text-align: left; cursor: auto; }
+.example-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.example-heading p { color: var(--muted); font-size: .78rem; line-height: 1.45; font-weight: 500; }
+.example-heading p span { white-space: nowrap; }
+.example-audio { flex: none; min-width: 44px; min-height: 44px; width: 44px; height: 44px; padding: 10px; }
+.example-audio svg { width: 21px; height: 21px; }
+.example-text { color: #e3b18a; font-size: 1.15rem; line-height: 1.5; font-weight: 500; overflow-wrap: anywhere; }
+.example-reveal { min-height: 44px; font-size: .82rem; padding: 8px 0; margin-top: 4px; color: #bdc6d7; text-decoration: underline; text-underline-offset: 4px; }
+.example-translation { color: #d3d7df; font-size: .97rem; line-height: 1.55; font-weight: 400; }
+.example-note { color: var(--muted); font-size: .8rem; line-height: 1.5; font-weight: 400; margin-top: 8px; }
+.example-status { color: var(--muted); font-size: .76rem; line-height: 1.5; margin-top: 5px; }
+.example-status:empty { display: none; }
+
 @media (max-width: 820px), (max-width: 1024px) and (pointer: coarse) {
-  .app-header { height: auto; min-height: 60px; }
+  .app-header { height: auto; min-height: 60px; flex-wrap: wrap; }
+  .header-actions { margin-left: auto; }
+  .rating-row { flex-wrap: wrap; }
   .workspace { padding: 8px 0 10px; }
   .study-topline { margin-bottom: 6px; }
   .card-stage { gap: 8px; }
   .flashcard, .card-inner { min-height: 290px; }
   .card-face { padding: 16px 20px; }
+  .back-word { color: #e3b18a; font-weight: 600; }
+  .card-translation { font-size: 1.35rem; font-weight: 500; }
   .word-area { padding: 18px 0; }
   .meaning-area { padding: 16px 0; gap: 14px; }
   .card-direction { margin-bottom: 12px; }
@@ -36,6 +61,18 @@
   /* Hidden ratings must not reserve an empty row before the answer is revealed. */
   .phone-layout .rating-row[hidden] { display: none !important; }
   .app-footer { padding-top: 8px; padding-bottom: 0; }
+}
+
+@media (max-width: 380px), (max-height: 650px) and (pointer: coarse) {
+  .flashcard, .card-inner { min-height: 240px; }
+  .card-direction { margin-bottom: 10px; }
+  .word-area { padding: 14px 0; }
+  .card-face { padding: 14px 18px; }
+  .meaning-area { padding: 14px 0; gap: 12px; }
+  .flip-button { font-size: .94rem; padding-inline: 10px; }
+  .card-translation { font-size: 1.25rem; }
+  .example-text { font-size: 1.08rem; }
+  .example-translation { font-size: .94rem; }
 }
 
 /* Landscape puts controls beside the card without clipping longer expressions. */

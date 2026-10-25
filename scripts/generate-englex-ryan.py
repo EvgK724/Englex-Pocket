@@ -386,16 +386,9 @@ def main():
     if not args.approved_dictionary_egress:
         parser.error("Dictionary text egress must be explicitly approved before generation.")
     next_continuation({}, args.continuation)
-    def deploy_progress():
-        try:
-            result = subprocess.run(["gh", "workflow", "run", "pages.yml", "--ref", "main"], cwd=ROOT,
-                                    capture_output=True, timeout=30)
-            failed = result.returncode != 0
-        except (subprocess.SubprocessError, OSError):
-            failed = True
-        if failed:
-            print("Progress Pages dispatch failed; final workflow step will retry deployment.")
-    result = asyncio.run(generate(publish=args.publish, deadline_minutes=args.deadline_minutes, on_publish=deploy_progress))
+    # The workflow deploys after both word and example queues are complete.
+    # Individual word checkpoints must not start incomplete Pages deployments.
+    result = asyncio.run(generate(publish=args.publish, deadline_minutes=args.deadline_minutes))
     print(json.dumps(result))
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a") as output:

@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
+import {fileURLToPath} from 'node:url';
 import {readFile, stat} from 'node:fs/promises';
 import {execFileSync} from 'node:child_process';
 import {assetUrl} from '../dist/paths.mjs';
 import {FISH_PROFILES, validateFishManifest} from '../dist/fish-voice.mjs';
-import {validateChonishviliAManifest, validateEnglexAIManifest} from '../dist/voice-options.mjs';
+import {validateChonishviliAManifest, validateEnglexAIManifest, validateEnglexRyanManifest} from '../dist/voice-options.mjs';
+import {activeAssets} from './prepare-pages.mjs';
 import {ORIGINAL_COUNT, validateDictionary, validateAudioIndex} from './dictionary-integrity.mjs';
 
 const root = new URL('../dist/', import.meta.url);
@@ -12,8 +14,8 @@ const dictionaryBytes = await read('dictionary.json');
 const dictionary = JSON.parse(dictionaryBytes);
 const index = JSON.parse(await read('audio-index.json'));
 validateDictionary(dictionary);
-// New words can use device speech until a recording is available. Every
-// recording declared by the index must still belong to a card and exist.
+// Archived recordings are preserved and checked; active speech uses Ryan only.
+// The publication gate below requires word and example audio before deployment.
 validateAudioIndex(index, dictionary);
 let audioBytes = 0;
 for (const id of index.cards) {
@@ -42,6 +44,14 @@ for (const path of [...aIds].map(id => `audio/fish-chonishvili-a-v1/${id}.mp3`).
   assert.ok(info.isFile() && info.size > 100, `Missing selected-voice recording: ${path}`);
 }
 
+const ryanIds = validateEnglexRyanManifest(JSON.parse(await read('englex-ryan-index.json')), validIds);
+assert.notEqual(ryanIds, null, 'Invalid active generated Ryan manifest');
+for (const id of ryanIds) {
+  const info = await stat(new URL(`audio/englex-ryan/${id}.mp3`, root));
+  assert.ok(info.isFile() && info.size > 100, `Missing generated Ryan recording: ${id}`);
+}
+const coverage = await activeAssets(fileURLToPath(root), {requireReady: process.argv.includes('--require-ready')});
+
 const html = (await read('index.html')).toString();
 const manifest = JSON.parse(await read('manifest.webmanifest'));
 const references = [...html.matchAll(/(?:src|href)="([^"]+)"/g)].map(match => match[1]);
@@ -55,7 +65,7 @@ const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
 assert.equal(new Set(ids).size, ids.length, 'Duplicate HTML id');
 const app = (await read('app.js')).toString();
 for (const [, id] of app.matchAll(/\$\('([^']+)'\)/g)) assert.ok(ids.includes(id), `Missing interface element: ${id}`);
-for (const module of ['app.js', 'core.mjs', 'recorded-speech.mjs', 'paths.mjs', 'fish-voice.mjs', 'voice-options.mjs']) {
+for (const module of ['app.js', 'core.mjs', 'recorded-speech.mjs', 'paths.mjs', 'fish-voice.mjs', 'voice-options.mjs', 'examples.mjs']) {
   execFileSync(process.execPath, ['--input-type=module', '--check'], {input: await read(module)});
   for (const [, path] of (await read(module)).toString().matchAll(/from\s+['"]([^'"]+)['"]/g)) await stat(new URL(path, root));
 }
@@ -77,5 +87,5 @@ for (const [name, size] of [['apple-touch-icon.png', 180], ['icon-192.png', 192]
   assert.equal(png.readUInt32BE(16), size, name);
   assert.equal(png.readUInt32BE(20), size, name);
 }
-console.log(`Ready: ${dictionary.cards.length} cards (${ORIGINAL_COUNT} original cards protected), ${index.count} recordings (${audioBytes} bytes), all assets present; root and repository paths valid.`);
+console.log(`Ready: ${dictionary.cards.length} cards (${ORIGINAL_COUNT} original cards protected), ${index.count} recordings (${audioBytes} bytes), all indexed assets present; ${coverage.missingWords.length} word and ${coverage.missingExamples.length} example recordings pending; root and repository paths valid.`);
 

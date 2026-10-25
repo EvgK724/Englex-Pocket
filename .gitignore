@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+.englex-ryan/
+.englex-examples-ryan/
+.englex-audio-import/
+.pages-site/

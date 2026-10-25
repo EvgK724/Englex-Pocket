@@ -47,7 +47,7 @@ test('settings retain Ryan without a redundant card voice tile',async()=>{
 
 test('actual progress load/save migrates Choni and Doris to Ryan without resetting learning state',async()=>{
   const app=await readFile(new URL('../dist/app.js',import.meta.url),'utf8');
-  const original={version:1,recordedVoiceVersion:3,voiceURI:CHONISHVILI_A_VOICE_URI,stars:[a],ratings:{[a]:'review',[b]:'known'},currentId:b,rate:1.05,kind:'phrasal',sort:'alphabetical'};
+  const original={version:1,recordedVoiceVersion:3,voiceURI:CHONISHVILI_A_VOICE_URI,stars:[a],ratings:{[a]:'review',[b]:'known'},currentId:b,rate:1.05,kind:'phrasal',sort:'alphabetical',deck:'starred'};
   let stored=JSON.stringify(original);
   const context={state:{stars:new Set(),ratings:{},voiceURI:ENGLEX_AI_VOICE_URI},searchBookmark:null,currentId:null,byId:new Map([[a,{id:a}],[b,{id:b}]]),STORAGE_KEY:'englex-pocket-v1',VOICE_PREFERENCE_VERSION,VOICE_OPTIONS,ENGLEX_AI_VOICE_URI,CHONISHVILI_A_VOICE_URI,SOFT_VOICE_URI,migrateVoicePreference,sanitizeProgress,storageWarning:false,toast:()=>assert.fail('valid progress should load'),resetSpeech(){},localStorage:{getItem:()=>stored,setItem:(key,value)=>{assert.equal(key,'englex-pocket-v1');stored=value;}}};
   context.current=()=>context.byId.get(context.currentId)||null;
@@ -146,7 +146,7 @@ async function uiContext(preferred=ENGLEX_AI_VOICE_URI){
   const document={querySelectorAll:()=>[],addEventListener(){}};
   const context={state:{voiceURI:preferred,cards:[{id:a},{id:b}],rate:.9},audioIds:new Set([a,b]),chonishviliAIds:new Set(),chonishviliCleanIds:new Set(),englexRecordings:new Map(),englexRyanIds:new Set(),voiceLoadStatus:new Map(),failedRecordings:new Set(),VOICE_OPTIONS,ENGLEX_AI_VOICE_URI,CHONISHVILI_A_VOICE_URI,SOFT_VOICE_URI,voiceCardIds,recordingForVoice,
     byId:new Map([[a,{id:a,word:'First recording'}],[b,{id:b,word:'Current phrase'}]]),current:()=>({id:b,word:'Current phrase'}),$:node,document,Option:function(label,value){this.label=label;this.value=value;},assetUrl:path=>path,speechText:word=>word,
-    refreshVoiceManifests(){context.manifestRefreshes=(context.manifestRefreshes||0)+1;return Promise.resolve();},
+    refreshVoiceManifests(){context.manifestRefreshes=(context.manifestRefreshes||0)+1;return Promise.resolve();},refreshExamples(){return Promise.resolve();},updateExampleAudio(){},pronounceExample(){},
     save(){this.savedURI=this.state.voiceURI;},recordedSpeech:{stop(){},play(path,callbacks){context.played=path;context.playbackCallbacks=callbacks;}}
   };
   context.save=()=>{context.savedURI=context.state.voiceURI;};
@@ -183,7 +183,7 @@ test('Ryan stays selected while its audio is pending; another Ryan sample can be
 
 test('settings changes keep Ryan and save all learning state',async()=>{
   const {context,node,app}=await uiContext();
-  const original={version:1,recordedVoiceVersion:VOICE_PREFERENCE_VERSION,voiceURI:ENGLEX_AI_VOICE_URI,stars:[a],ratings:{[a]:'review',[b]:'known'},currentId:a,rate:1.05,kind:'phrasal',sort:'alphabetical'};
+  const original={version:1,recordedVoiceVersion:VOICE_PREFERENCE_VERSION,voiceURI:ENGLEX_AI_VOICE_URI,stars:[a],ratings:{[a]:'review',[b]:'known'},currentId:a,rate:1.05,kind:'phrasal',sort:'alphabetical',deck:'all'};
   let stored=JSON.stringify(original);
   Object.assign(context,{searchBookmark:{id:a},currentId:b,STORAGE_KEY:'englex-pocket-v1',VOICE_PREFERENCE_VERSION,migrateVoicePreference,sanitizeProgress,storageWarning:false,toast:()=>assert.fail('valid progress should save'),navigator:{userAgent:'test desktop'},toggleStar(){},openCollection(){},closeCollection(){},localStorage:{getItem:()=>stored,setItem:(key,value)=>{assert.equal(key,'englex-pocket-v1');stored=value;}}});
   Object.assign(context.state,{stars:new Set(original.stars),ratings:{...original.ratings},rate:original.rate,kind:original.kind,sort:original.sort});
@@ -282,6 +282,7 @@ test('returning online refreshes audio even when dictionary refresh is throttled
   const context={metadata:{count:2},document:{visibilityState:'visible'},navigator:{onLine:true},audioRefreshes:0,collectionRefreshes:0};
   context.refreshCollection=()=>{context.collectionRefreshes++;return Promise.resolve();};
   context.refreshVoiceManifests=()=>{context.audioRefreshes++;return Promise.resolve();};
+  context.refreshExamples=()=>Promise.resolve();
   runInNewContext(app.slice(app.indexOf('function refreshWhenActive(){'),app.indexOf('async function init(){')),context);
   runInNewContext('refreshWhenActive();',context);
   assert.equal(context.audioRefreshes,1);

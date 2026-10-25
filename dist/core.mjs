@@ -40,20 +40,23 @@ export function chooseVoice(voices, preferredURI) {
   return english.sort((a, b) => score(b) - score(a))[0] || null;
 }
 
-export function sanitizeProgress(raw, validIds) {
+export function sanitizeProgress(raw, validIds, {preserveUnknown = false} = {}) {
   if (!raw || typeof raw !== 'object' || raw.version !== 1) throw new Error('Это не копия прогресса Englex Pocket.');
-  const stars = Array.isArray(raw.stars) ? raw.stars.filter(id => typeof id === 'string' && validIds.has(id)) : [];
+  // A stale first dictionary response must not erase progress for newer cards.
+  const retain = id => typeof id === 'string' && (validIds.has(id) || preserveUnknown && /^[a-f0-9]{20}$/.test(id));
+  const stars = Array.isArray(raw.stars) ? raw.stars.filter(retain) : [];
   const ratings = Object.create(null);
   if (raw.ratings && typeof raw.ratings === 'object' && !Array.isArray(raw.ratings)) {
-    for (const [id, value] of Object.entries(raw.ratings)) if (validIds.has(id) && ['review', 'known'].includes(value)) ratings[id] = value;
+    for (const [id, value] of Object.entries(raw.ratings)) if (retain(id) && ['review', 'known'].includes(value)) ratings[id] = value;
   }
   return {
     version: 1, stars: [...new Set(stars)], ratings,
-    currentId: validIds.has(raw.currentId) ? raw.currentId : null,
+    currentId: retain(raw.currentId) ? raw.currentId : null,
     voiceURI: typeof raw.voiceURI === 'string' ? raw.voiceURI.slice(0, 300) : 'auto',
     rate: Number.isFinite(raw.rate) ? Math.min(1.15, Math.max(.65, raw.rate)) : .9,
     kind: ['all', 'word', 'collocation', 'phrasal'].includes(raw.kind) ? raw.kind : 'all',
-    sort: ['newest', 'oldest', 'alphabetical'].includes(raw.sort) ? raw.sort : 'newest'
+    sort: ['newest', 'oldest', 'alphabetical'].includes(raw.sort) ? raw.sort : 'newest',
+    deck: ['all', 'starred', 'review'].includes(raw.deck) ? raw.deck : 'all'
   };
 }
 
