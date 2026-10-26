@@ -50661,6 +50661,186 @@
       "audioSha256": "7ffb085b882c3983341c526c56f8ed8be3c7c433941152bf29e4d1e8ea7d18d9",
       "path": "audio/englex-examples-ryan/3e08f7ad3b982e4fdb2c-716fc30e8c3a0eb474d8-ryan-v1.mp3",
       "duration": 4.392
+    },
+    "1aac8a9aebf4cc332918": {
+      "textSha256": "5ebb5c05e3a83739aedd5d77d3843a464d98f6565f81df9761a67937ba148cc6",
+      "audioSha256": "8d25c14b558e562b4b0111db6ce8c1dba997d8a55a82a4a023c1e20171f7aa74",
+      "path": "audio/englex-examples-ryan/1aac8a9aebf4cc332918-5ebb5c05e3a83739aedd-ryan-v1.mp3",
+      "duration": 4.152
+    },
+    "9cdaa1f860fdde8eb8da": {
+      "textSha256": "42d1bdf6349c984002f2abd5326725c16d75d23f3d6df4a74aee07e084bdb333",
+      "audioSha256": "57949fffdedb5da2cdc992c3d6c380940cb8f8fb1dccf6e320c0e10ea18ff9b5",
+      "path": "audio/englex-examples-ryan/9cdaa1f860fdde8eb8da-42d1bdf6349c984002f2-ryan-v1.mp3",
+      "duration": 4.152
+    },
+    "ccb5235d45558b312974": {
+      "textSha256": "085bd3443704afdcb301986613b5a337d2dbc213ff850f4a08a2c8a4fcf5f6fc",
+      "audioSha256": "09a975e11587e6798c26bb78a18b37c614aad2400ab77d2797a6d6d0dce85de6",
+      "path": "audio/englex-examples-ryan/ccb5235d45558b312974-085bd3443704afdcb301-ryan-v1.mp3",
+      "duration": 3.888
+    },
+    "828ce2abe3ca5dc56565": {
+      "textSha256": "e376852e047dccdf42f46b0b4241eb02b785a444311897247b6724d0ce8e834a",
+      "audioSha256": "b3b2cb09fa89441c6d0a55c0032348908f91d4af490d2d0cfacc58435e4fcf6a",
+      "path": "audio/englex-examples-ryan/828ce2abe3ca5dc56565-e376852e047dccdf42f4-ryan-v1.mp3",
+      "duration": 3.36
+    },
+    "2614fa9efd9c23a1e4b9": {
+      "textSha256": "33082710b9239da8acc610fbf81216cb92161cb6412ec3f2e028fb0e8857b4ee",
+      "audioSha256": "44cdbe75dd988b490fb34b0e35cb5da7793d5799466e7f8626bcafcc1edae149",
+      "path": "audio/englex-examples-ryan/2614fa9efd9c23a1e4b9-33082710b9239da8acc6-ryan-v1.mp3",
+      "duration": 3.792
+    },
+    "fa5586594d522a8cd6b2": {
+      "textSha256": "10e9f0fefb424bba81bed25aae7aca6adc66a2fec4f85d05ab66a3e6f6e45f95",
+      "audioSha256": "14a11aad4bae304b93f80a54aaff4f950ffed95d22d62d55408c8e3f7abb715f",
+      "path": "audio/englex-examples-ryan/fa5586594d522a8cd6b2-10e9f0fefb424bba81be-ryan-v1.mp3",
+      "duration": 4.44
+    },
+    "87943ec60eaef187d1e1": {
+      "textSha256": "de9c5b7a677aadf9563514ef867be2b901871746b2ceb7caa6012246f999c01c",
+      "audioSha256": "9c158d5f4da428564faaec5c950add7e220c5595317032681ae2c91dfdcd12c9",
+      "path": "audio/englex-examples-ryan/87943ec60eaef187d1e1-de9c5b7a677aadf95635-ryan-v1.mp3",
+      "duration": 4.128
+    },
+    "54143992f3c91edcdc6d": {
+      "textSha256": "112e4c68d0a1ba7154f0ed4d6fe053ffe1facb01e0a2b7f843da3be95d0932bb",
+      "audioSha256": "9aa085f96ac0b3ba6e13c9e7cf1dc1b96c93ff43be3ac2d340a1f04818aebe34",
+      "path": "audio/englex-examples-ryan/54143992f3c91edcdc6d-112e4c68d0a1ba7154f0-ryan-v1.mp3",
+      "duration": 3.624
+    },
+    "e88ec09d96a167310882": {
+      "textSha256": "b51a82f16d91083879e963c517d3dff20ff1900845468633a3f36d4570de8c27",
+      "audioSha256": "e56dbbfd5aaf8c2b8eb66625086c92ac2b32336d2e9696d6ea7578d06817ce4f",
+      "path": "audio/englex-examples-ryan/e88ec09d96a167310882-b51a82f16d91083879e9-ryan-v1.mp3",
+      "duration": 4.008
+    },
+    "89a84d6fae485944d62f": {
+      "textSha256": "cc97d61c0e6b6a47ed0e69b0e47089d21bc028602d6708ee8f40bb54e5eb93a7",
+      "audioSha256": "17ff3884d9b1dd57f7bf76ea03aa518f3952a1034b3e250c9468c95bbe616c76",
+      "path": "audio/englex-examples-ryan/89a84d6fae485944d62f-cc97d61c0e6b6a47ed0e-ryan-v1.mp3",
+      "duration": 4.56
+    },
+    "8a1f6973a1e6393f3eff": {
+      "textSha256": "05b7f8eb31ba6d8f8af969c23335acb8a3f38c4e1c960997585e7248bde7a04a",
+      "audioSha256": "308a9102c341b3f9fda2c4694c37316d398cf8e9bfff1112560225870118bd99",
+      "path": "audio/englex-examples-ryan/8a1f6973a1e6393f3eff-05b7f8eb31ba6d8f8af9-ryan-v1.mp3",
+      "duration": 4.224
+    },
+    "14fa21c8a9f66d693334": {
+      "textSha256": "28a2e4e6a15f2133c77b325ac73efb2724d2200c72e1a6664fc88bc3797d1ec6",
+      "audioSha256": "eb89d178f5e6c6d0a8c216a0e22d6e1bd83d806763aa177cd730136cecfc6744",
+      "path": "audio/englex-examples-ryan/14fa21c8a9f66d693334-28a2e4e6a15f2133c77b-ryan-v1.mp3",
+      "duration": 4.344
+    },
+    "cdb46d26e3e0f82491ef": {
+      "textSha256": "507ce780bcbd5deb3589c96b6c2e971588ebee8ecfa1261557aae12cc7959b67",
+      "audioSha256": "3e79697b8277c169395554f59366427380021565cba05949ee2848bfcb736933",
+      "path": "audio/englex-examples-ryan/cdb46d26e3e0f82491ef-507ce780bcbd5deb3589-ryan-v1.mp3",
+      "duration": 4.224
+    },
+    "b99bdb849be3f8224df1": {
+      "textSha256": "ef452b05c958795d760401607d95e20fa1cb50a007a9f44f2f7df04321bb08c6",
+      "audioSha256": "9255f9ff0948620724b0f1feab1d261fa9e445b86627544628f8b5693f724821",
+      "path": "audio/englex-examples-ryan/b99bdb849be3f8224df1-ef452b05c958795d7604-ryan-v1.mp3",
+      "duration": 3.552
+    },
+    "9f10cdfd675a287556ff": {
+      "textSha256": "81d92d9240d2f16fdc4e2fc0919a3ef59609b94dd6ca03390c0d42b73441eb97",
+      "audioSha256": "b9b532c9e1a6108e406133ac191c0a276ea785cecef860b83033d59c387c2d39",
+      "path": "audio/englex-examples-ryan/9f10cdfd675a287556ff-81d92d9240d2f16fdc4e-ryan-v1.mp3",
+      "duration": 4.032
+    },
+    "031d15255a3c757d3920": {
+      "textSha256": "8cb8084d69d3e92e84c7e8c11894c1d7329cff4efa1c92a1dfa30f0af2127594",
+      "audioSha256": "ba873d32e20681a721f770507877c0ab90771d50e35e7298c327a20644e4f3dd",
+      "path": "audio/englex-examples-ryan/031d15255a3c757d3920-8cb8084d69d3e92e84c7-ryan-v1.mp3",
+      "duration": 4.8
+    },
+    "8e7fe6f98f2433695d8d": {
+      "textSha256": "e354a130314d992ec00c85a5065d2b55ff4cc475f8c079b1a82eab43c9793432",
+      "audioSha256": "aabde2d2a510064ce00756db2e384c65a3c979cc31901b14ed4d959b09413a62",
+      "path": "audio/englex-examples-ryan/8e7fe6f98f2433695d8d-e354a130314d992ec00c-ryan-v1.mp3",
+      "duration": 4.68
+    },
+    "c42ff92d7c78ec38c46b": {
+      "textSha256": "19ee26d3319f3f074a7b02096741ac50dac950a75ab07987b4256fe97c3591c4",
+      "audioSha256": "016a5beb167ab9d63850ceebc55cc42262d91ac10399e77e4791686b1ae66eca",
+      "path": "audio/englex-examples-ryan/c42ff92d7c78ec38c46b-19ee26d3319f3f074a7b-ryan-v1.mp3",
+      "duration": 4.776
+    },
+    "865a6a3378f7dad92e13": {
+      "textSha256": "0f5ecf66dcf4fdce674898a3b7badc79b9b4c3c70eeab7f62f03d0be93245d98",
+      "audioSha256": "b7bb051b2b11085c968eda8b035f6b0080d567971136f8bdfb1778ceeb70670a",
+      "path": "audio/englex-examples-ryan/865a6a3378f7dad92e13-0f5ecf66dcf4fdce6748-ryan-v1.mp3",
+      "duration": 3.792
+    },
+    "0b0133cecee0fe690900": {
+      "textSha256": "2d158482605d347d00a91a0a853aa6084efd5317f3bda568a498c33d5e58e523",
+      "audioSha256": "bb9acdc1b983ec4c1dd242f93ff342d0bae1bb000162beef5c917466517df605",
+      "path": "audio/englex-examples-ryan/0b0133cecee0fe690900-2d158482605d347d00a9-ryan-v1.mp3",
+      "duration": 4.104
+    },
+    "8a2fe6b7f0e7e59179ce": {
+      "textSha256": "2ac4afe8f167c490d700a73d9e835117a2b516df6f79f9d92c045236e678b54e",
+      "audioSha256": "d3f97003aaf436a25aaf68945a43c7e4875ce285a76634d4461457478de3eeb2",
+      "path": "audio/englex-examples-ryan/8a2fe6b7f0e7e59179ce-2ac4afe8f167c490d700-ryan-v1.mp3",
+      "duration": 4.44
+    },
+    "c6dd3ee028c411469a14": {
+      "textSha256": "80fc394168091851a48672d2da57cdba936c074e78a7d0d63d3e8a1c96a685d5",
+      "audioSha256": "5671634289b1af7830da268db50acd1c350154813d1feef9ee7a2cfaae74cbb1",
+      "path": "audio/englex-examples-ryan/c6dd3ee028c411469a14-80fc394168091851a486-ryan-v1.mp3",
+      "duration": 3.504
+    },
+    "309cb4fbb01b2fc6c439": {
+      "textSha256": "51607772024b70d59825be2b2c84e02eabd8d8d6441da6116a44bab2eb19deb7",
+      "audioSha256": "4c77fbc67843d7be78cf083012b1becf10da63ab4d41156ed353a3ab71807186",
+      "path": "audio/englex-examples-ryan/309cb4fbb01b2fc6c439-51607772024b70d59825-ryan-v1.mp3",
+      "duration": 3.888
+    },
+    "c94e466a660c67a3250e": {
+      "textSha256": "10fe6eccffac73a1759e3850bb527af6d86fd0918d4a28668d7f74f96ef32c1b",
+      "audioSha256": "5d1d75c6d4e0848080c3ebf5a0bf6c6e4d20f5cde1deacba4fa33f2ce987347d",
+      "path": "audio/englex-examples-ryan/c94e466a660c67a3250e-10fe6eccffac73a1759e-ryan-v1.mp3",
+      "duration": 3.84
+    },
+    "385e25aa803029115041": {
+      "textSha256": "2b523b7cb0194ebf1b214e868b73418afb14124bfe0663e612f7a63ddd135d96",
+      "audioSha256": "f5d7136052ffd9338207fb9c248b12bcdc2994977d1de139bf0d611eed5aa108",
+      "path": "audio/englex-examples-ryan/385e25aa803029115041-2b523b7cb0194ebf1b21-ryan-v1.mp3",
+      "duration": 4.392
+    },
+    "c8ee0c8a822cb1150414": {
+      "textSha256": "cda3a243a598e12f24c1c9a2ebb00c103337c47c1f8d854e27787216b47d12d9",
+      "audioSha256": "a2b77e298d96a4f9b09b905ed34ef15296c96805f7ad0c25d5cb041871044c5f",
+      "path": "audio/englex-examples-ryan/c8ee0c8a822cb1150414-cda3a243a598e12f24c1-ryan-v1.mp3",
+      "duration": 3.864
+    },
+    "3511f68751a067fa9109": {
+      "textSha256": "fc53b6924ba8b6687b15f87cb61b722fc1f3de04f19fc2fda110c393a118b37e",
+      "audioSha256": "0b45129ac9e27546b6461053b1192aeb603164cfd68e391c00b41014a9fed77f",
+      "path": "audio/englex-examples-ryan/3511f68751a067fa9109-fc53b6924ba8b6687b15-ryan-v1.mp3",
+      "duration": 3.84
+    },
+    "2d3d4e691621e7349e92": {
+      "textSha256": "c5345b0bf4dc66d33ee9de149c6f67acf7122305a4d2a345aa51123f7b25dd26",
+      "audioSha256": "c0cda3f614c11b8fa9d3272693645ebb9f13ca90384973a15dc75a4edc5e53e0",
+      "path": "audio/englex-examples-ryan/2d3d4e691621e7349e92-c5345b0bf4dc66d33ee9-ryan-v1.mp3",
+      "duration": 4.344
+    },
+    "e10c421d5b1de9de3cd3": {
+      "textSha256": "648fbfaaba40cbcf43a2b7dffca7d41a06b3996d04fd00a50202dcce4f25373c",
+      "audioSha256": "17556ced79a8484129918a834e200a09aeb99d02fac9d2abb2d201d58388d73a",
+      "path": "audio/englex-examples-ryan/e10c421d5b1de9de3cd3-648fbfaaba40cbcf43a2-ryan-v1.mp3",
+      "duration": 4.056
+    },
+    "16a7954fa9ebbf9574f9": {
+      "textSha256": "4b8bd181758db02fe3f6d41165b37b84a4a782025b7fdef2a69132ece0ffb0fa",
+      "audioSha256": "23ead24108e2f65c5f9d2b50f60f29eb7649c02ce0bc4fd608e959d221dabe81",
+      "path": "audio/englex-examples-ryan/16a7954fa9ebbf9574f9-4b8bd181758db02fe3f6-ryan-v1.mp3",
+      "duration": 3.936
     }
   }
 }
