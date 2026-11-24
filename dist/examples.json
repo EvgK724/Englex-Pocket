@@ -59445,6 +59445,559 @@
       "en": "The guide refused to lead a high-risk climb in bad weather.",
       "ru": "Гид отказался руководить крайне рискованным восхождением в плохую погоду.",
       "textSha256": "4b8bd181758db02fe3f6d41165b37b84a4a782025b7fdef2a69132ece0ffb0fa"
+    },
+    "98b086ee908af34b25d0": {
+      "word": "harmless",
+      "translation": "безвредный, безобидный",
+      "en": "The spider in the garden looks frightening, but it is harmless.",
+      "ru": "Паук в саду выглядит страшно, но он безвреден.",
+      "textSha256": "221cc923b949d5c4a953eb4805d30b25af0828dbdcb3b36fcf706660974ccbd0"
+    },
+    "b67b9783dfcc584f3236": {
+      "word": "sink",
+      "translation": "тонуть",
+      "en": "As more water came in, the little boat began to sink.",
+      "ru": "Воды в лодке становилось всё больше, и она начала тонуть.",
+      "textSha256": "bec96021e1dc3cce90ea83c3444aa64e219de133c45181721881fda7384cb071"
+    },
+    "8042aca1a9ae273fc17d": {
+      "word": "terrify",
+      "translation": "приводить в ужас",
+      "en": "The thought of speaking to a hundred strangers used to terrify him.",
+      "ru": "Раньше одна мысль о том, что придётся выступить перед сотней незнакомых людей, приводила его в ужас.",
+      "textSha256": "79971a1f2b09197c2c86c4ddd4ef4060344a4261ebd0920cf8d99c5b346f4146"
+    },
+    "2548a97435ba6951ea7f": {
+      "word": "shake with fear",
+      "translation": "трястись от страха",
+      "en": "My hands were shaking with fear as I stepped onto the narrow bridge.",
+      "ru": "Когда я ступил на узкий мост, у меня от страха дрожали руки.",
+      "textSha256": "edc338985ebe042d2c7e68c83c7933a1711cebd0b0817eda2df45bd9c0665020"
+    },
+    "d4c765e0a3294b87c2df": {
+      "word": "alarmed",
+      "translation": "встревоженный, настороженный",
+      "en": "Marta was alarmed when she noticed smoke coming from the kitchen.",
+      "ru": "Марта встревожилась, когда заметила, что из кухни идёт дым.",
+      "textSha256": "33edc7462eda725c3b6228645fc1d8cccfc598cf54bb35c081240f6fe2008fbf"
+    },
+    "cefbeb5f549aa619a7fb": {
+      "word": "shock",
+      "translation": "шокировать, ввести в состояние шока",
+      "en": "It shocked Maya to see how much her old neighbourhood had changed.",
+      "ru": "Майю потрясло, как сильно изменился район, где она раньше жила.",
+      "textSha256": "dc8e1111a2a8b25da0ea42598f357a036c935da217584eb7873d810ece37c3a3"
+    },
+    "44eb075cb405a7176564": {
+      "word": "scream",
+      "translation": "кричать",
+      "en": "I heard my sister scream when a frog jumped into her lap.",
+      "ru": "Я услышал, как сестра закричала, когда ей на колени прыгнула лягушка.",
+      "textSha256": "feaf4d01d2fb92f0a77ba414a0db5346a31ac1481d362a7f09b5dc6564104dd1"
+    },
+    "edce0808a75cab9e547a": {
+      "word": "crash",
+      "translation": "авария, катастрофа",
+      "en": "After the crash, both drivers got out to check that nobody was hurt.",
+      "ru": "После аварии оба водителя вышли из машин, чтобы убедиться, что никто не пострадал.",
+      "textSha256": "1b1dfaebad1c6e23d4a90d5716b22da0f0cfdf50b3ad956b841b0b6332c34ebb"
+    },
+    "8c3fe20e75df3cb9029e": {
+      "word": "in terror",
+      "translation": "в ужасе",
+      "en": "When the fireworks began, the dog hid under the bed in terror.",
+      "ru": "Когда начался фейерверк, пёс в ужасе спрятался под кроватью.",
+      "textSha256": "2a86be5a61b3fbac57e439634e86ca41fa0bb1bb78c47a72adf4f6cddca5ddbc"
+    },
+    "5230867bb03d9d200e27": {
+      "word": "dreadful",
+      "translation": "ужасный, страшный",
+      "en": "There was a dreadful smell in the kitchen after the milk boiled over.",
+      "ru": "После того как молоко убежало, на кухне стоял ужасный запах.",
+      "textSha256": "fdf8a2d611a4efa0dc5003999b23e5c994b896b945ec83c2ef25376ab57f20ec"
+    },
+    "7894ed6d01260cd38117": {
+      "word": "phobia",
+      "translation": "фобия, страх",
+      "en": "Because of her phobia of lifts, Kate always takes the stairs to her office.",
+      "ru": "Кейт боится лифтов, поэтому всегда поднимается к себе в офис по лестнице.",
+      "textSha256": "9ab1edfa0841cdc788483f4d1dea486dfff465c09197c6debd0a47808267dedb"
+    },
+    "71f953925f8d25383e4c": {
+      "word": "scare",
+      "translation": "пугать",
+      "en": "Please close the gate gently so you don't scare the horses.",
+      "ru": "Пожалуйста, прикрой калитку тихонько, чтобы не напугать лошадей.",
+      "textSha256": "8d7aa6a61aeb4bfeca1843a02b40e6fddb30ec8562276c396f10e99dbcf2002d"
+    },
+    "c645050cf6ea5326f2e2": {
+      "word": "frighten",
+      "translation": "испугать, напугать",
+      "en": "Try to speak quietly so you don't frighten the foal.",
+      "ru": "Постарайся говорить тихо, чтобы не напугать жеребёнка.",
+      "textSha256": "7fcd681310a8b341e09916a7d800605851b4c58bf1158cb587ba7d4625fd44d0"
+    },
+    "65afe171c92951302fb1": {
+      "word": "terrifying",
+      "translation": "жуткий, ужасающий",
+      "en": "For a few terrifying seconds, I couldn't see my daughter in the crowd.",
+      "ru": "Несколько жутких секунд я не мог разглядеть дочь в толпе.",
+      "textSha256": "d90c7f36909039b656b4c2bd1829f57c0088497dc57031415cc3e133eadf0f82"
+    },
+    "24f2ce10535193a4dc21": {
+      "word": "threat",
+      "translation": "угроза",
+      "en": "The new road is a threat to the birds that nest beside the lake.",
+      "ru": "Новая дорога представляет угрозу для птиц, которые гнездятся у озера.",
+      "textSha256": "3c4a6be1d59e58c133837d6e01639e329249a8f4e2c637d77cb6fd7c9e17f4f1"
+    },
+    "1b8a26ae08a803394d05": {
+      "word": "shelter",
+      "translation": "убежище",
+      "en": "The old boat shed gave us shelter until the storm passed.",
+      "ru": "Старый лодочный сарай служил нам укрытием, пока не прошла буря.",
+      "textSha256": "c307b6f7ca9dcafb576fb52c67caf7ecc98600ebe97d596a21de9b853be4ecf9"
+    },
+    "fe6c916ef91d10c29dbc": {
+      "word": "tough",
+      "translation": "трудный",
+      "en": "Choosing which of the two job offers to accept was a tough decision.",
+      "ru": "Было трудно решить, какое из двух предложений о работе принять.",
+      "textSha256": "d72e4769f78cf1e40f13dbcc4a4776e12ef2b36891874d18dea8ac9e15e6d7a5"
+    },
+    "180b26a3fcbb129da068": {
+      "word": "eventually",
+      "translation": "в конечном счете, в итоге",
+      "en": "I tried three keys before I eventually found the one that opened the gate.",
+      "ru": "Я перепробовала три ключа, прежде чем наконец нашла тот, который открывал калитку.",
+      "textSha256": "c51c17b296684a666dd2a1d4e0d670b30206188bc1140fd19d9f340ee177d1d9"
+    },
+    "78b58127dbc9cb57f5e6": {
+      "word": "go through",
+      "translation": "пережить, проходить через что-либо",
+      "en": "Our little bookshop went through a difficult winter while the street was closed for repairs.",
+      "ru": "Нашему небольшому книжному магазину пришлось пережить трудную зиму, пока улица была закрыта на ремонт.",
+      "textSha256": "874a56ab191dff6966a33df8cdb71653158e8fbd19dd3f00df5afe80560c12df"
+    },
+    "67e199cc28c17e3faa16": {
+      "word": "hopeless",
+      "translation": "безнадежный",
+      "en": "The search seemed hopeless until someone spotted a light across the lake.",
+      "ru": "Поиски казались безнадёжными, пока кто-то не заметил огонёк на другом берегу озера.",
+      "textSha256": "1a2e3f6a69eb91354bb5388debcb8988dd00a90b7f62e30afa65c7e132d60d04"
+    },
+    "c791f57096715e76b4fd": {
+      "word": "life-threatening",
+      "translation": "опасный для жизни",
+      "en": "The climber survived the fall without any life-threatening injuries.",
+      "ru": "Альпинист выжил после падения и не получил травм, опасных для жизни.",
+      "textSha256": "c725562543e3ac891d1b443f25812785bfd065dd5e67959d757f8eb1c9174ecb"
+    },
+    "f2f66e953c4d16abeffa": {
+      "word": "survival",
+      "translation": "выживание",
+      "en": "The survival of the village shop depends on people buying their groceries there.",
+      "ru": "Выживет ли деревенский магазин, зависит от того, будут ли местные жители покупать там продукты.",
+      "textSha256": "28c3ac8d0c49bf1810a062f2694114402b336ef9539d6da2a99732476d418bfe"
+    },
+    "0f1ccd508b0174bba08b": {
+      "word": "exhaust",
+      "translation": "истощать, утомлять",
+      "en": "Trying to keep up with her grandchildren exhausted her by the end of the afternoon.",
+      "ru": "К концу дня она выбилась из сил, пытаясь угнаться за внуками.",
+      "textSha256": "6b0afa130d268aa0affe0df607f7ebc73ee9b198e033f8b826fc100131039d25"
+    },
+    "dce1355a1e2bd7bb7a20": {
+      "word": "struggle",
+      "translation": "трудность, борьба",
+      "en": "Getting the piano up three flights of stairs was a real struggle.",
+      "ru": "Поднять пианино на три лестничных пролёта оказалось совсем непросто.",
+      "textSha256": "9fb015ec485255dfb9d68c67c536eca6694e45d49887bf4d87a8e552af575c9c"
+    },
+    "446e038c445f8e965d98": {
+      "word": "safety measure",
+      "translation": "мера безопасности",
+      "en": "After the storm, the park closed the riverside path as a safety measure.",
+      "ru": "После шторма администрация парка в целях безопасности закрыла тропу вдоль реки.",
+      "textSha256": "50a0d1466dcadca9acf95bb93359af6c8284f1939e3985459fb70ea255c65a2b"
+    },
+    "ae6104c0a5a20f1a9505": {
+      "word": "exhausting",
+      "translation": "утомительный",
+      "en": "The night bus was cheap, but the twelve-hour journey was exhausting.",
+      "ru": "Билет на ночной автобус стоил недорого, но двенадцатичасовая поездка меня вымотала.",
+      "textSha256": "7f33aba43059f47596838cf6a05259e0042078b497a04642b2cf80c3f0911a08"
+    },
+    "976125d429cf4992d4a0": {
+      "word": "hopeful",
+      "translation": "оптимистичный, полный надежды",
+      "en": "After the second interview, Nadia felt hopeful about getting the job.",
+      "ru": "После второго собеседования у Нади появилась надежда, что её возьмут на работу.",
+      "textSha256": "42472d634ce81c367efff3be3ab49c94d20d502ae2edfa9d6eadc76e00d52525"
+    },
+    "7bde4f46768b412b279e": {
+      "word": "take precautions",
+      "translation": "принимать меры предосторожности",
+      "en": "The gallery took precautions against leaks by moving the paintings away from the windows.",
+      "ru": "На случай протечки сотрудники галереи приняли меры предосторожности и перенесли картины подальше от окон.",
+      "textSha256": "fc16f383ada7bebc4d59f208bbb33a36fce7516c39243e51cb568f747c82f610"
+    },
+    "5382f06a5cc1e7898376": {
+      "word": "survive",
+      "translation": "выживать",
+      "en": "Only two of the young olive trees survived their first winter.",
+      "ru": "Только две молодые оливы пережили свою первую зиму.",
+      "textSha256": "34e2e14faca8e781a00e27c8247d60390887152196aa5ea71fca9e999452d2cc"
+    },
+    "aac33993639b75a9203c": {
+      "word": "tragic",
+      "translation": "трагический",
+      "en": "The play tells the story of two friends who meet again after a tragic accident.",
+      "ru": "Пьеса рассказывает о двух друзьях, которые снова встречаются после трагического происшествия.",
+      "textSha256": "2a1887ce61f15d4a74cd06be4daa4621ff482be9eb330a6fcdd3d16c67a4ccc3"
+    },
+    "c889f983167004628a81": {
+      "word": "escape",
+      "translation": "выход, побег",
+      "en": "We only noticed the rabbit’s escape when we found it eating lettuce in the garden.",
+      "ru": "Мы заметили, что кролик сбежал, только когда увидели, как он ест салат в огороде.",
+      "textSha256": "3b359d188a4aafa361c677b312f0f46df112574c057a7ec3a5348a40501c123e"
+    },
+    "389c1776b763d297524b": {
+      "word": "pitch a tent",
+      "translation": "поставить палатку",
+      "en": "When the wind finally dropped, we found a flat spot to pitch a tent.",
+      "ru": "Когда ветер наконец стих, мы нашли ровное место, чтобы поставить палатку.",
+      "textSha256": "1af69213a211ed6618471cd79f6ee9c02189291d8c12048e8c4353c61265b17c"
+    },
+    "827c695b3f90b54f1c1b": {
+      "word": "pitch camp",
+      "translation": "разбить лагерь",
+      "en": "We decided to pitch camp by the lake before it got dark.",
+      "ru": "Мы решили разбить лагерь у озера до темноты.",
+      "textSha256": "cab9771302d08da0edad50dda45699ef2dfad6587c8ef665f040067dbed07c28"
+    },
+    "374399617a60f99a970f": {
+      "word": "break camp",
+      "translation": "свернуть лагерь",
+      "en": "We had to break camp before sunrise to catch the first ferry.",
+      "ru": "Нам пришлось свернуть лагерь до рассвета, чтобы успеть на первый паром.",
+      "textSha256": "bab4a0c02d858bb198ce0ea137ec965315e6bfef27fcbeaeafe805a50597f6ea"
+    },
+    "abf506bc6ffef4cabcab": {
+      "word": "take down a tent",
+      "translation": "снять палатку",
+      "en": "Could you show me how to take down a tent without bending the poles?",
+      "ru": "Покажешь, как разобрать палатку и не погнуть дуги?",
+      "textSha256": "112ec4f0ed6b1f4573130926e28f411607018ddbe986581d392684a84341ea01"
+    },
+    "4cd4bb9579885549060a": {
+      "word": "pack up the tent",
+      "translation": "сложить и убрать палатку",
+      "en": "We waited for the rain to stop before we packed up the tent.",
+      "ru": "Мы дождались, пока перестанет идти дождь, и только потом сложили и убрали палатку.",
+      "textSha256": "ebf7035ad6fb1a62709d5ae2aaca79beb97c7b44861019b94846e41ca5be974e"
+    },
+    "c2022e63eb81f6e32530": {
+      "word": "a bird feeder",
+      "translation": "кормушка",
+      "en": "My niece made a bird feeder from an old wooden box.",
+      "ru": "Моя племянница сделала кормушку для птиц из старого деревянного ящика.",
+      "textSha256": "5447ead36fdb8538874482fa07ccfa9e61a2930360bb13df5dac04708305a2a4"
+    },
+    "8ec087b586bce5f06b46": {
+      "word": "thankfully",
+      "translation": "к счастью, слава богу",
+      "en": "I left my bag on the train, but thankfully someone handed it in.",
+      "ru": "Я забыла сумку в поезде, но, к счастью, кто-то сдал её в бюро находок.",
+      "textSha256": "0114c441775ce4593bb0378631ff29eedf58bbd08c5abb9d96683bb774a64158"
+    },
+    "0c76dacba9b90f56206c": {
+      "word": "wanderlust",
+      "translation": "страсть к путешествиям",
+      "en": "Looking through my aunt’s travel photos filled me with wanderlust.",
+      "ru": "Пока я рассматривал фотографии из поездок тёти, мне самому ужасно захотелось путешествовать.",
+      "textSha256": "e1c37f409cc766ad17c43999dd6102312eec1341d2c18cf2c28b7c2db1aee507"
+    },
+    "f1589223ced3eabb7899": {
+      "word": "essential oil",
+      "translation": "эфирное масло",
+      "en": "The soap gets its scent from a few drops of lemon essential oil.",
+      "ru": "Аромат этому мылу придают несколько капель эфирного масла лимона.",
+      "textSha256": "7a103b3cf7cbae4df2023f3925ae8f0c673c8a0bb7ee9d5e9059231c15cba7f9"
+    },
+    "c3cfb538d02c47084959": {
+      "word": "scrap of fabric",
+      "translation": "кусок ткани, лоскут",
+      "en": "I used a scrap of fabric from an old shirt to patch my jeans.",
+      "ru": "Я залатал джинсы лоскутом ткани от старой рубашки.",
+      "textSha256": "4685d3f3671ff574665d8be8f4f9df117998bb85cf7e61f843d6012d61f8b98d"
+    },
+    "93d014fd0feec513e529": {
+      "word": "thread",
+      "translation": "продевать, вдевать",
+      "en": "Thread the blue ribbon through both holes and tie the ends together.",
+      "ru": "Продень синюю ленту в оба отверстия и свяжи концы.",
+      "textSha256": "59195378cf33952ec46e9e89ee740d16822f0e47abc4cd00fd2c5137608b7d8f"
+    },
+    "4c3fb8e720f4fc7a6a0a": {
+      "word": "trace",
+      "translation": "обвести",
+      "en": "Trace around your hand with a pencil, then cut out the shape.",
+      "ru": "Обведи руку карандашом, а затем вырежи получившийся силуэт.",
+      "textSha256": "d6a14aa02742fca4f5d5ab3e1f1e5db9f29e5942d7ba620465faecdc9f511a97"
+    },
+    "aa7d19f844796029f3aa": {
+      "word": "significance",
+      "translation": "важность, значимость",
+      "en": "I only understood the significance of the date when I read my grandmother's diary.",
+      "ru": "Я понял, почему эта дата так важна, только когда прочитал бабушкин дневник.",
+      "textSha256": "24e026e7ce56e0c5f0882e6ac4d1f5f888eff2b41966165b69a25a9804be5d2d"
+    },
+    "57ef35a28e02cdb1cf9c": {
+      "word": "contribute to",
+      "translation": "содействовать, способствовать; вносить вклад",
+      "en": "Everyone in the village can contribute to the exhibition by lending a family photo.",
+      "ru": "Каждый житель деревни может внести вклад в выставку, одолжив для неё семейную фотографию.",
+      "textSha256": "ca0fc4d43586f4f8581366c8bcbea89e2c8694dfb06a254bc789c702087f130b"
+    },
+    "c70facd0a6f5b3cec65b": {
+      "word": "dramatically",
+      "translation": "разительно, сильно",
+      "en": "The number of cyclists rose dramatically after the new cycle path opened.",
+      "ru": "После открытия новой велодорожки число велосипедистов резко выросло.",
+      "textSha256": "03a292c72f143e3f03a5a7e2f324057af9686b0ce1dd33352e4dbacf08de5b73"
+    },
+    "487cfb2c9833c5a1faf9": {
+      "word": "justify",
+      "translation": "оправдывать, объяснять",
+      "en": "I cycle to work most days, so I can’t justify the cost of a second car.",
+      "ru": "Почти каждый день я езжу на работу на велосипеде, поэтому не вижу смысла тратиться на вторую машину.",
+      "textSha256": "64e62c7904e694f7fa31256eae352163d278e0086c4d1c444a1e54808c465bc5"
+    },
+    "76550583ccdb2a5a11f6": {
+      "word": "in the short term",
+      "translation": "в краткосрочной перспективе, в ближайшее время",
+      "en": "Renting a van is cheaper in the short term, but we'll need our own by the summer.",
+      "ru": "В ближайшее время дешевле брать фургон напрокат, но к лету нам понадобится свой.",
+      "textSha256": "5bb54bc1f81d98f6a2028dbe7374f6754a748d11af301abeae5953a816085985"
+    },
+    "8561a8668a5878450064": {
+      "word": "enhance",
+      "translation": "улучшать, усиливать, увеличивать",
+      "en": "A little lemon juice enhances the flavour of the soup.",
+      "ru": "Немного лимонного сока делает вкус супа ярче.",
+      "textSha256": "681c7a7d4ee9eb236cf9bacada7d9de581ff5c10690d44a140edf8d002aec1ca"
+    },
+    "3e11d89838ef8b55bc2a": {
+      "word": "undergo",
+      "translation": "испытывать, переносить; подвергаться",
+      "en": "Every lift in this building has to undergo a safety check once a year.",
+      "ru": "Раз в год каждый лифт в этом здании должен проходить проверку безопасности.",
+      "textSha256": "4a505581373c5b6810e6b85db5d345259a630330cc39542a6229c7025a6f94b8"
+    },
+    "dda312bd13ea34575193": {
+      "word": "favourable",
+      "translation": "благоприятный",
+      "en": "With favourable winds, we should reach the island before dark.",
+      "ru": "При попутном ветре мы должны добраться до острова засветло.",
+      "textSha256": "6475479c428279d532d864b98679ac1f3489170b4ea6d4d2cb2562178ef818ba"
+    },
+    "ba0f6e6bfbea0d96aac5": {
+      "word": "consequently",
+      "translation": "следовательно; вследствие",
+      "en": "Heavy snow blocked the only road, and consequently no deliveries reached the village that week.",
+      "ru": "Сильный снегопад перекрыл единственную дорогу, поэтому на той неделе в деревню ничего не доставили.",
+      "textSha256": "55b5f759f4d2348c8a4971a4980078791979290119a1c61a2e4e60f5cc7db570"
+    },
+    "f9d393b61f57476e637e": {
+      "word": "significant",
+      "translation": "значительный, важный; знаменательный",
+      "en": "There was a significant drop in ticket sales after the price went up.",
+      "ru": "После повышения цены продажи билетов заметно упали.",
+      "textSha256": "7f6139fcaf0a567a5d4ac39090c72bb5a195e357c0649d8a821f2404713bb44d"
+    },
+    "d83270e655a2bf81cfbb": {
+      "word": "prompt",
+      "translation": "побуждать, вызывать",
+      "en": "Seeing the empty shelves prompted me to ask when the next delivery was due.",
+      "ru": "Увидев пустые полки, я решил спросить, когда ожидается следующая поставка.",
+      "textSha256": "921b57dfeab1783edfa28653bde8a5c6154d4ac83b5d6029ed40a9df94db3631"
+    },
+    "b81a719a942b9ae899b8": {
+      "word": "unchanged",
+      "translation": "неизменившийся, оставшийся прежним",
+      "en": "The café has a new owner, but the price of a cup of tea has remained unchanged.",
+      "ru": "У кафе новый хозяин, но цена чашки чая осталась прежней.",
+      "textSha256": "0ed7bf37e283df47a05acdda3df6d1438d44f783ab5cc57ee0eb31e0782002e1"
+    },
+    "19e5bc0f7d6bc382272c": {
+      "word": "gradually",
+      "translation": "постепенно",
+      "en": "As my eyes gradually got used to the dark, I could see the steps ahead.",
+      "ru": "По мере того как глаза привыкали к темноте, я постепенно начал различать ступеньки впереди.",
+      "textSha256": "46c8b06988ae35a099d8988c525b21c718bd65ee56755517d51530631fbd8d9b"
+    },
+    "e2f9ba087a00a9e87cc3": {
+      "word": "in the long term",
+      "translation": "в долгосрочной перспективе",
+      "en": "The metal roof costs more now, but it will save us money in the long term.",
+      "ru": "Металлическая крыша сейчас обойдётся дороже, но в долгосрочной перспективе поможет нам сэкономить.",
+      "textSha256": "d433d0267ba420b7348f9b0b2d40beeb334589f3acdc343ed09201a19abbaf11"
+    },
+    "b1d7b1fbad11d9333676": {
+      "word": "account for",
+      "translation": "объяснять (что-либо); быть причиной (чему-либо)",
+      "en": "Roadworks alone can't account for a delay of nearly three hours.",
+      "ru": "Одними дорожными работами нельзя объяснить задержку почти на три часа.",
+      "textSha256": "f1b0330580bd9e87e442ecdda1291c71c0b6190ecca667b0067b25e2b1f4d341"
+    },
+    "78027b4022b5bf88dcb8": {
+      "word": "change your mind",
+      "translation": "изменить решение, передумать",
+      "en": "If you change your mind about the picnic, there’s still room in our car.",
+      "ru": "Если передумаешь и решишь поехать на пикник, у нас в машине ещё есть место.",
+      "textSha256": "7aa44ac1eb229699372cb53b819577bec2d82a9adbd352a20bbff1a86053888e"
+    },
+    "e133d8113295fe36deea": {
+      "word": "consequence",
+      "translation": "последствие",
+      "en": "One unexpected consequence of closing the bridge was that the local ferry became popular again.",
+      "ru": "Закрытие моста имело неожиданное последствие: местный паром снова стал популярным.",
+      "textSha256": "67b9036e9c239242132aa7b64afa437c8a6e639a362a5f4845b99a37aa0ab69b"
+    },
+    "204b7f3c4e6ecb67b1c9": {
+      "word": "have a positive impact",
+      "translation": "иметь положительный эффект",
+      "en": "The new evening bus has had a positive impact on people who work late.",
+      "ru": "Новый вечерний автобус облегчил жизнь тем, кто работает допоздна.",
+      "textSha256": "3d2f4ba2be3a74ec64c1926a8a59d521b15aad292420bbce6dac256ae09164c5"
+    },
+    "accfdd28c5b7255bf07b": {
+      "word": "fundamental",
+      "translation": "существенный, основной",
+      "en": "We disagree on a fundamental point: who should pay for the new bridge?",
+      "ru": "Мы расходимся в главном: кто должен платить за новый мост?",
+      "textSha256": "02675a1b836686f5843c02c8c607e5b519c6f047865707925948d5e00f34c60b"
+    },
+    "1d0d4f7eb4ea98aa02d7": {
+      "word": "beneficial",
+      "translation": "полезный; благотворный",
+      "en": "Sharing a studio was beneficial for both artists because they could afford a larger space.",
+      "ru": "Снимать мастерскую вдвоём оказалось выгодно обоим художникам, потому что вместе они могли позволить себе помещение побольше.",
+      "textSha256": "a6f6f1136c01ced345fa0d7e03c1b82a77cf10739deb3a3a019b42f77343505b"
+    },
+    "bd9d83d46164ac34914f": {
+      "word": "upcoming trip",
+      "translation": "предстоящая поездка",
+      "en": "I'm brushing up on my French for our upcoming trip to Lyon.",
+      "ru": "Я освежаю свой французский перед нашей предстоящей поездкой в Лион.",
+      "textSha256": "a96be6482086a8a1358c18cf5eafc7cb3b346b6a8051e13da9ac7e3cf3f81d34"
+    },
+    "a22245b3a8bf1146e261": {
+      "word": "means",
+      "translation": "средство, способ",
+      "en": "On the island, a bicycle is my main means of transport.",
+      "ru": "На острове велосипед — моё основное средство передвижения.",
+      "textSha256": "ebd2c6dc3a0b99a664fd7c666c747e427eee7852739c8fabe70be3ff035e30ce"
+    },
+    "759bd3edc6f22234b62f": {
+      "word": "adopt a different approach",
+      "translation": "выбрать другой подход",
+      "en": "When fewer people signed up, we decided to adopt a different approach and offer a trial lesson.",
+      "ru": "Когда желающих записаться стало меньше, мы решили выбрать другой подход и предложить пробный урок.",
+      "textSha256": "e7a1e87a1474a2fdc052e8556427b36523b3b8f905cdb900ced4b521c63a5cdf"
+    },
+    "8a835545e80b72bb33fc": {
+      "word": "relocate",
+      "translation": "перемещать; переехать (в связи с изменением места работы)",
+      "en": "When her lab moved to Bristol, Nina decided to relocate too.",
+      "ru": "Когда её лаборатория переехала в Бристоль, Нина решила тоже туда перебраться.",
+      "textSha256": "fc9c3991fb084a2ed88617517982d782396d79db80a98c11374cc68072ad61b4"
+    },
+    "f9e8ecb69c00f310720a": {
+      "word": "alter",
+      "translation": "менять, меняться",
+      "en": "Could you alter the sleeves so the jacket fits me better?",
+      "ru": "Вы могли бы перешить рукава, чтобы пиджак лучше на мне сидел?",
+      "textSha256": "b181033607e45cd19761fe4c0160e17b5eb69e5166a55751934415332ebb9a36"
+    },
+    "69bfbb64d318901c7b19": {
+      "word": "adjust",
+      "translation": "привыкать, приспосабливаться",
+      "en": "It took me a few weeks to adjust to working night shifts.",
+      "ru": "Мне понадобилось несколько недель, чтобы привыкнуть к работе в ночную смену.",
+      "textSha256": "640e5e4057c252323260abf0f6e17482ddf9fbdaa2c8b0a24489e89ec755d465"
+    },
+    "5bd9e03b61155c4977f0": {
+      "word": "shift from/to",
+      "translation": "изменять(-ся), смещать(-ся) (из/в)",
+      "en": "As the fog cleared, our attention shifted from the map to the mountain ahead.",
+      "ru": "Когда туман рассеялся, наше внимание переключилось с карты на гору впереди.",
+      "textSha256": "ca7bdba75f1aa44fc4d5b31aee05aac9e6e681cc11ebd86ea96ac973f303488a"
+    },
+    "df4e29d010f30f80105e": {
+      "word": "reorganise",
+      "translation": "реорганизовывать",
+      "en": "We need to reorganise the shelves so children can reach their favourite books.",
+      "ru": "Нужно по-другому расставить книги на полках, чтобы дети могли дотянуться до своих любимых книг.",
+      "textSha256": "8764f1039558aec3a60843e153af5e5ad716ec077f7110ec4898c81f5d144423"
+    },
+    "e54b6aff3106af18260e": {
+      "word": "convert",
+      "translation": "переводить (из одного состояния в другое), переоборудовать",
+      "en": "The council plans to convert the old station into a public library.",
+      "ru": "Городской совет планирует переоборудовать старый вокзал под публичную библиотеку.",
+      "textSha256": "f3d6b8fa45ecd590b3a621fb4be8b22fe1d836b0b4655711272c3fc4a090e54f"
+    },
+    "496063efab838dba8667": {
+      "word": "serve",
+      "translation": "выполнять назначение, служить (чем-либо)",
+      "en": "A wooden bench by the front door also serves as a shoe rack.",
+      "ru": "Деревянная скамья у входной двери служит ещё и полкой для обуви.",
+      "textSha256": "eb166fd805a2868ade424f71a13004f1af71370ed10f0162469afe86736bca2b"
+    },
+    "cf31033e0558af2b7685": {
+      "word": "shift in",
+      "translation": "сдвиг, изменение (в)",
+      "en": "The café owner noticed a shift in demand: more people were asking for oat milk.",
+      "ru": "Владелица кафе заметила, что спрос изменился: всё больше гостей просили овсяное молоко.",
+      "textSha256": "ffccb8407fdcf6220245d13300589623b576fd38c123f32e42eb37babae07e72"
+    },
+    "5ec593c3dd44cbd7d7d2": {
+      "word": "alteration",
+      "translation": "изменение",
+      "en": "A small alteration to the timetable gave us ten extra minutes to change trains.",
+      "ru": "Благодаря небольшому изменению в расписании у нас появилось ещё десять минут на пересадку.",
+      "textSha256": "470975611d06ed5973c9ed150d8db482caea647d6a24c097862df5c44ccda70c"
+    },
+    "d74d21c727b733c7ef90": {
+      "word": "signal",
+      "translation": "давать сигнал, делать знак",
+      "en": "The driver lowered his window and signalled to us to go ahead.",
+      "ru": "Водитель опустил стекло и дал нам знак проезжать первыми.",
+      "textSha256": "858d8b54abae9315fd8a03c6380ebc8c3245886de9d0937951c55f7e50fcc818"
+    },
+    "7b25322d438a07d37a0e": {
+      "word": "signal of",
+      "translation": "знак, сигнал (о)",
+      "en": "At sea, a red flare is a signal of distress.",
+      "ru": "В море красная сигнальная ракета — знак бедствия.",
+      "textSha256": "05881577910bac5554ae9c28f38b152ffebdebef72ec1589f7be234e00a0ed8f"
+    },
+    "68eb548320d3964f854b": {
+      "word": "transform",
+      "translation": "превращать, преобразовывать",
+      "en": "A few neighbours helped transform the empty car park into a playground.",
+      "ru": "Несколько соседей помогли превратить пустующую парковку в детскую площадку.",
+      "textSha256": "32447cabf364bd72001eb99a4e1c78bac060484edc67dab8feadf27588199308"
+    },
+    "2b478c80d9df1bde33a7": {
+      "word": "turn into",
+      "translation": "превращать(-ся) в",
+      "en": "The empty warehouse turned into a busy market every Saturday morning.",
+      "ru": "Каждую субботу утром пустой склад превращался в оживлённый рынок.",
+      "textSha256": "cf054b669a20f51ae5c9f382dac01259fbccf39289380abaa48603f1de1f8901"
     }
   }
 }
