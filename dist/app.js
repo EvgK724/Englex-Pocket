@@ -51,7 +51,7 @@ function syncPhoneLayout(){
   if(phoneMedia.matches){
     $('collection-panel').append(meta,tools,footer);
   }else{
-    $('card-back').append(meta);
+    document.querySelector('.entry-detail').append(meta);
     $('card-stage').append(tools);
     document.querySelector('.app-shell').append(footer);
   }
@@ -85,12 +85,17 @@ function renderWord(node,word){
 
 function flip(force){
   if(!current())return;
-  state.flipped=typeof force==='boolean'?force:!state.flipped;
+  const userToggle=typeof force!=='boolean';
+  state.flipped=userToggle?!state.flipped:force;
+  $('card-stage').classList.toggle('animate-disclosure',userToggle);
   if(!state.flipped&&playingExampleKey)recordedSpeech.stop();
   $('flashcard').classList.toggle('flipped',state.flipped);
-  $('card-back').hidden=!state.flipped;
+  for(const panel of [$('card-back'),$('rating-row')]){
+    panel.inert=!state.flipped;
+    // Cached pages from before the grid disclosure still use the hidden attribute.
+    if(!panel.classList.contains('study-reveal'))panel.hidden=!state.flipped;
+  }
   $('flip').setAttribute('aria-expanded',String(state.flipped));
-  $('rating-row').hidden=!state.flipped;
   $('progress-note').textContent=state.flipped?'Оцените, насколько легко вспомнили':'Сначала вспомните значение';
 }
 function renderCard(){

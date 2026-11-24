@@ -13,8 +13,8 @@
   <link rel="icon" href="./icon-192.png" type="image/png">
   <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
   <link rel="stylesheet" href="./styles.css?v=examples-20261025">
-  <link rel="stylesheet" href="./comfort.css?v=reading-4">
-  <script type="module" src="./app.js?v=reading-4"></script>
+  <link rel="stylesheet" href="./comfort.css?v=reading-5">
+  <script type="module" src="./app.js?v=reading-5"></script>
 </head>
 <body>
   <a class="skip-link" href="#study">К карточке</a>
@@ -62,20 +62,31 @@
               <p id="card-voice-note" class="card-voice-note" hidden></p>
             </div>
             <button id="flip" class="entry-disclosure" aria-controls="card-back" aria-expanded="false"><span id="flip-label">Перевод и пример</span><span class="chevron" aria-hidden="true"></span></button>
-            <div id="card-back" class="entry-detail" hidden>
-              <div id="card-translation" class="entry-translation"></div>
-              <section id="card-example" aria-labelledby="example-label" hidden>
-                <h3 id="example-label" class="visually-hidden">Учебный пример</h3>
-                <div class="example-line"><p id="example-text" lang="en"></p><button id="speak-example" class="sound-control example-audio" aria-label="Озвучить пример" aria-describedby="example-status" disabled><span data-icon="volume"></span></button></div>
-                <button id="example-reveal" class="text-button example-reveal" aria-controls="example-translation" aria-expanded="false">Перевод примера</button>
-                <p id="example-translation" class="example-translation" hidden></p>
-                <p id="example-note" class="example-note" hidden></p>
-                <p id="example-status" class="example-status" role="status" aria-live="polite"></p>
-              </section>
-              <div class="entry-meta" role="group" aria-label="Сведения о текущей карточке"><span id="card-kind"></span><span id="card-date"></span><span id="card-lists"></span><span id="card-state"></span></div>
+            <div id="card-back" class="study-reveal" inert>
+              <div class="reveal-clip">
+                <div class="entry-detail">
+                  <div id="card-translation" class="entry-translation"></div>
+                  <section id="card-example" aria-labelledby="example-label" hidden>
+                    <h3 id="example-label" class="visually-hidden">Учебный пример</h3>
+                    <div class="example-line"><p id="example-text" lang="en"></p><button id="speak-example" class="sound-control example-audio" aria-label="Озвучить пример" aria-describedby="example-status" disabled><span data-icon="volume"></span></button></div>
+                    <button id="example-reveal" class="text-button example-reveal" aria-controls="example-translation" aria-expanded="false">Перевод примера</button>
+                    <p id="example-translation" class="example-translation" hidden></p>
+                    <p id="example-note" class="example-note" hidden></p>
+                    <p id="example-status" class="example-status" role="status" aria-live="polite"></p>
+                  </section>
+                  <div class="entry-meta" role="group" aria-label="Сведения о текущей карточке"><span id="card-kind"></span><span id="card-date"></span><span id="card-lists"></span><span id="card-state"></span></div>
+                </div>
+              </div>
             </div>
           </article>
-          <div class="rating-row" id="rating-row" hidden><button id="mark-review" class="review-button"><span data-icon="repeat"></span>Повторить</button><button id="mark-known" class="known-button"><span data-icon="check"></span>Знаю</button></div>
+          <div id="rating-row" class="study-reveal" inert>
+            <div class="reveal-clip">
+              <div class="rating-row">
+                <button id="mark-review" class="review-button"><span data-icon="repeat"></span>Повторить</button>
+                <button id="mark-known" class="known-button"><span data-icon="check"></span>Знаю</button>
+              </div>
+            </div>
+          </div>
           <nav class="card-navigation" aria-label="Переключение карточек">
             <button id="previous" class="nav-step" aria-label="Предыдущая карточка"><span data-icon="left"></span>Назад</button>
             <span id="position-label" class="position-label">—</span>

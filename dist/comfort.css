@@ -107,6 +107,10 @@ select, .secondary-button { color: var(--ink); background: var(--soft); border-c
 }
 .chevron { width: 9px; height: 9px; margin: 0 4px; flex: none; border: solid currentColor; border-width: 0 1.75px 1.75px 0; transform: rotate(45deg); color: var(--muted); }
 .entry-disclosure[aria-expanded="true"] .chevron { transform: rotate(225deg); }
+.study-reveal { display: grid; grid-template-rows: 1fr; }
+.study-reveal[inert] { grid-template-rows: 0fr; }
+.reveal-clip { min-height: 0; overflow: clip; }
+.study-reveal:not([inert]) > .reveal-clip:has(:focus-visible) { overflow: visible; }
 .entry-detail { padding: 0 0 19px; }
 .entry-translation { color: #ead7bc; font-size: clamp(1.55rem, calc(1.05rem + 1.5vw), 2.35rem); letter-spacing: -.03em; font-weight: 550; line-height: 1.28; white-space: pre-line; overflow-wrap: anywhere; }
 #card-example { margin-top: 18px; }
@@ -149,7 +153,10 @@ select, .secondary-button { color: var(--ink); background: var(--soft); border-c
   .rating-row button:hover { background: #333840; }
 }
 @media (prefers-reduced-motion: no-preference) {
-  .entry-detail:not([hidden]), .example-translation:not([hidden]) { animation: reveal-meaning 180ms cubic-bezier(.2,.7,.2,1); }
+  .animate-disclosure .study-reveal { transition: grid-template-rows 320ms cubic-bezier(.35,0,.2,1); }
+  .study-reveal:not([inert]):has(:focus-visible) { transition: none; }
+  .app-shell:has(.animate-disclosure)::after { transition: opacity 320ms ease-in-out; }
+  .example-translation:not([hidden]) { animation: reveal-meaning 180ms cubic-bezier(.2,.7,.2,1); }
   .sound-control, .card-star, .rating-row button { transition: transform 100ms ease-out, background-color 120ms ease-out; }
   .sound-control .speaker-wave { transition: opacity 150ms ease-out; }
   :is(.sound-control, .card-star, .rating-row button):active:enabled { transform: scale(.96); }
@@ -157,7 +164,12 @@ select, .secondary-button { color: var(--ink); background: var(--soft); border-c
   @keyframes reveal-meaning { from { opacity: .87; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 }
 @media (max-width: 820px), (max-width: 1024px) and (pointer: coarse) {
-  .app-shell { max-width: 720px; padding-right: max(16px, env(safe-area-inset-right)); padding-left: max(16px, env(safe-area-inset-left)); }
+  .app-shell { display: flex; flex-direction: column; min-height: 100dvh; max-width: 720px; padding-right: max(16px, env(safe-area-inset-right)); padding-left: max(16px, env(safe-area-inset-left)); }
+  .app-shell:has(#card-stage:not([hidden]))::after {
+    content: ""; flex: 1 0 0px; pointer-events: none;
+    background: url("./foothill-trail.svg") center 40% / min(100%, 460px) auto no-repeat;
+  }
+  .app-shell:has(.entry.flipped)::after { opacity: .20; }
   .app-header { min-height: 56px; border-bottom: 0; }
   .workspace { display: block; padding: 0; }
   #collection-home, #install-help { display: none; }
