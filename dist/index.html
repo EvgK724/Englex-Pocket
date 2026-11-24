@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0c0f16">
+  <meta name="theme-color" content="#15171b">
   <meta name="description" content="Личная коллекция Englex. Слова и фразы на карточках с переводом, транскрипцией и озвучкой.">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -13,22 +13,25 @@
   <link rel="icon" href="./icon-192.png" type="image/png">
   <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
   <link rel="stylesheet" href="./styles.css?v=examples-20261025">
-  <link rel="stylesheet" href="./nocturne.css?v=examples-20261025">
-  <link rel="stylesheet" href="./phone.css?v=examples-20261025">
-  <link rel="stylesheet" href="./comfort.css?v=examples-20261025">
-  <script type="module" src="./app.js?v=examples-20261025"></script>
+  <link rel="stylesheet" href="./comfort.css?v=reading-4">
+  <script type="module" src="./app.js?v=reading-4"></script>
 </head>
 <body>
   <a class="skip-link" href="#study">К карточке</a>
   <div class="app-shell">
     <header class="app-header">
-      <a class="brand" href="./" aria-label="Englex Pocket, главная"><img class="brand-icon" src="./icon-192.png" width="48" height="48" alt=""><span>englex<span class="brand-pocket">pocket</span></span></a>
-      <div class="header-actions"><button class="icon-button phone-control" id="collection-open" aria-label="Поиск и выбор карточек" aria-controls="collection-dialog" aria-haspopup="dialog"><span data-icon="search"></span></button><button class="icon-button phone-control" id="install-open" aria-label="Добавить на экран Домой" aria-haspopup="dialog"><span data-icon="phone"></span></button><button class="icon-button" id="settings-open" aria-label="Озвучка и настройки"><span data-icon="settings"></span></button></div>
+      <a class="brand" href="./" aria-label="Englex Pocket, главная"><img class="brand-icon" src="./icon-192.png" width="32" height="32" alt=""><span>Englex <span class="brand-pocket">Pocket</span></span></a>
+      <button class="icon-button" id="settings-open" aria-label="Озвучка и настройки"><span data-icon="settings"></span></button>
     </header>
     <main class="workspace">
       <div id="collection-home"><aside class="collection" id="collection-panel" aria-label="Выбор карточек">
-        <div class="collection-heading"><div><p class="eyebrow">Личная коллекция</p><h1>Ваш словарь</h1></div><span class="collection-total" id="total-count">—</span></div>
-        <label class="search-box"><span data-icon="search"></span><span class="visually-hidden">Найти слово или перевод</span><input id="search" type="search" placeholder="Слово или перевод" autocomplete="off" spellcheck="false"><kbd>/</kbd></label>
+        <div class="collection-heading"><h1>Словарь</h1><span class="collection-total" id="total-count">—</span></div>
+        <div id="collection-search-home">
+          <div id="search-bar" role="search">
+            <label class="search-box"><span data-icon="search"></span><span class="visually-hidden">Слово или перевод</span><input id="search" type="search" placeholder="Слово или перевод" autocomplete="off" spellcheck="false" enterkeyhint="search" aria-controls="search-results"><kbd>/</kbd></label>
+            <div id="search-results" class="search-results" hidden aria-label="Результаты поиска"></div>
+          </div>
+        </div>
         <div class="deck-tabs" role="group" aria-label="Колода">
           <button class="deck-tab active" data-deck="all" aria-pressed="true">Все <span id="all-count">—</span></button>
           <button class="deck-tab" data-deck="starred" aria-pressed="false"><span data-icon="star"></span><span>Избранное</span><span id="star-count">0</span></button>
@@ -38,49 +41,56 @@
           <label><span class="visually-hidden">Тип выражения</span><select id="kind-filter"><option value="all">Все типы</option><option value="word">Слова</option><option value="collocation">Сочетания</option><option value="phrasal">Фразовые глаголы</option></select></label>
           <label><span class="visually-hidden">Порядок карточек</span><select id="sort-order"><option value="newest">Сначала новые</option><option value="oldest">Сначала старые</option><option value="alphabetical">От A до Z</option></select></label>
         </div>
-        <div id="search-results" class="search-results" hidden aria-label="Результаты поиска"></div>
         <div class="collection-footer"><span data-icon="layers"></span><span id="collection-note">Ваш словарь Englex</span></div>
       </aside></div>
       <section id="study" class="study" aria-label="Карточки для повторения">
-        <div class="study-topline"><span id="deck-label">Вся коллекция</span><div><span id="position-label" class="position-label">—</span><button id="shuffle" class="icon-button small" aria-label="Перемешать карточки"><span data-icon="shuffle"></span></button></div></div>
+        <div class="mobile-search">
+          <div id="mobile-search-home"></div>
+          <button class="icon-button" id="collection-open" aria-label="Колоды и фильтры" aria-controls="collection-dialog" aria-haspopup="dialog"><span data-icon="layers"></span></button>
+        </div>
         <div id="load-state" class="empty-state" role="status"><span class="loading-ring" aria-hidden="true"></span><h2>Открываем вашу коллекцию…</h2></div>
         <div id="empty-state" class="empty-state" hidden><span data-icon="search"></span><h2 id="empty-title">Карточек пока нет</h2><p id="empty-text"></p><button class="secondary-button" id="clear-filters">Показать все карточки</button></div>
         <div id="card-stage" class="card-stage" hidden>
-          <article id="flashcard" class="flashcard" aria-label="Английская карточка">
-            <div class="card-inner">
-              <div id="card-front" class="card-face card-front">
-                <div class="card-toolbar"><span class="type-label" id="card-kind"></span><button id="star-front" class="icon-button card-star" aria-label="Добавить в избранное" aria-pressed="false"><span data-icon="star"></span></button></div>
-                <div class="word-area"><p class="card-direction">ENGLISH</p><div class="word-line"><h2 id="card-word" lang="en"></h2><button id="speak-front" class="audio-button" aria-label="Озвучить выражение"><span data-icon="volume"></span></button></div><div class="pronunciation"><span id="card-ipa" lang="en"></span></div></div>
-                <div class="card-bottom"><span id="card-date"></span><span>Перевод на обороте <span data-icon="rotate"></span></span></div>
+          <article id="flashcard" class="entry" aria-label="Английская карточка">
+            <div id="card-front" class="entry-head">
+              <h2 id="card-word" lang="en" tabindex="-1"></h2>
+              <button id="star-front" class="icon-button card-star" aria-label="Добавить в избранное" aria-pressed="false"><span data-icon="star"></span></button>
+              <div class="pronunciation-row">
+                <button id="speak-front" class="sound-control word-audio" aria-label="Озвучить слово голосом Ryan" disabled><span data-icon="volume"></span></button>
+                <span id="card-ipa" class="entry-ipa" lang="en"></span>
               </div>
-              <div id="card-back" class="card-face card-back" inert aria-hidden="true">
-                <div class="card-toolbar"><span class="type-label">Значение</span><button id="star-back" class="icon-button card-star" aria-label="Добавить в избранное" aria-pressed="false"><span data-icon="star"></span></button></div>
-                <div class="meaning-area"><div class="word-line"><p id="back-word" class="back-word" lang="en"></p><button id="speak-back" class="audio-button back-audio" aria-label="Озвучить английское выражение"><span data-icon="volume"></span></button></div><div id="card-translation" class="card-translation"></div>
-                  <section id="card-example" class="card-example" aria-labelledby="example-label" hidden>
-                    <div class="example-heading"><p id="example-label">Учебный пример <span>· B1–B2</span></p><button id="speak-example" class="audio-button example-audio" aria-label="Озвучить пример" aria-describedby="example-status" disabled><span data-icon="volume"></span></button></div>
-                    <p id="example-text" class="example-text" lang="en"></p>
-                    <button id="example-reveal" class="text-button example-reveal" aria-controls="example-translation" aria-expanded="false">Показать перевод примера</button>
-                    <p id="example-translation" class="example-translation" hidden></p>
-                    <p id="example-note" class="example-note" hidden></p>
-                    <p id="example-status" class="example-status" role="status" aria-live="polite"></p>
-                  </section>
-                </div>
-                <div class="card-bottom"><span id="card-lists"></span><span id="card-state"></span></div>
-              </div>
+              <p id="card-voice-note" class="card-voice-note" hidden></p>
+            </div>
+            <button id="flip" class="entry-disclosure" aria-controls="card-back" aria-expanded="false"><span id="flip-label">Перевод и пример</span><span class="chevron" aria-hidden="true"></span></button>
+            <div id="card-back" class="entry-detail" hidden>
+              <div id="card-translation" class="entry-translation"></div>
+              <section id="card-example" aria-labelledby="example-label" hidden>
+                <h3 id="example-label" class="visually-hidden">Учебный пример</h3>
+                <div class="example-line"><p id="example-text" lang="en"></p><button id="speak-example" class="sound-control example-audio" aria-label="Озвучить пример" aria-describedby="example-status" disabled><span data-icon="volume"></span></button></div>
+                <button id="example-reveal" class="text-button example-reveal" aria-controls="example-translation" aria-expanded="false">Перевод примера</button>
+                <p id="example-translation" class="example-translation" hidden></p>
+                <p id="example-note" class="example-note" hidden></p>
+                <p id="example-status" class="example-status" role="status" aria-live="polite"></p>
+              </section>
+              <div class="entry-meta" role="group" aria-label="Сведения о текущей карточке"><span id="card-kind"></span><span id="card-date"></span><span id="card-lists"></span><span id="card-state"></span></div>
             </div>
           </article>
-          <p id="card-voice-note" class="card-voice-note" hidden></p>
-          <div class="flip-row"><button id="flip" class="flip-button" aria-controls="flashcard" aria-pressed="false"><span data-icon="rotate"></span><span id="flip-label">Показать перевод</span><kbd>пробел</kbd></button></div>
-          <div class="rating-row" id="rating-row"><button id="mark-review" class="review-button"><span data-icon="repeat"></span>Повторить</button><button id="mark-known" class="known-button"><span data-icon="check"></span>Знаю</button></div>
-          <nav class="card-navigation" aria-label="Переключение карточек"><button id="previous" class="icon-button" aria-label="Предыдущая карточка"><span data-icon="left"></span></button><span id="progress-note">Сначала вспомните значение</span><button id="next" class="icon-button" aria-label="Следующая карточка"><span data-icon="right"></span></button></nav>
+          <div class="rating-row" id="rating-row" hidden><button id="mark-review" class="review-button"><span data-icon="repeat"></span>Повторить</button><button id="mark-known" class="known-button"><span data-icon="check"></span>Знаю</button></div>
+          <nav class="card-navigation" aria-label="Переключение карточек">
+            <button id="previous" class="nav-step" aria-label="Предыдущая карточка"><span data-icon="left"></span>Назад</button>
+            <span id="position-label" class="position-label">—</span>
+            <button id="next" class="nav-step" aria-label="Следующая карточка">Дальше<span data-icon="right"></span></button>
+          </nav>
+          <p id="progress-note" class="visually-hidden"></p>
+          <div class="study-tools"><span id="deck-label">Вся коллекция</span><button id="shuffle" class="text-button" aria-label="Перемешать карточки"><span data-icon="shuffle"></span>Перемешать</button></div>
         </div>
         <p id="audio-status" class="audio-status" role="status" aria-live="polite"></p>
         <button id="audio-reset" class="text-button audio-reset" hidden>Перезапустить звук</button>
       </section>
     </main>
-    <footer class="app-footer"><span id="footer-progress">Englex Pocket</span><button id="install-help" class="text-button"><span data-icon="phone"></span>На экран телефона</button></footer>
+    <footer class="app-footer"><span id="footer-progress"></span><button id="install-open" class="text-button mobile-install" aria-haspopup="dialog"><span data-icon="phone"></span>На экран «Домой»</button><button id="install-help" class="text-button"><span data-icon="phone"></span>На экран телефона</button></footer>
   </div>
-  <dialog id="collection-dialog" class="settings-dialog collection-dialog" aria-labelledby="collection-title"><form method="dialog" class="dialog-header"><h2 id="collection-title">Ваш словарь</h2><button class="icon-button" aria-label="Закрыть поиск"><span data-icon="close"></span></button></form><div id="collection-dialog-body" class="dialog-content"></div><div class="collection-done"><button id="collection-apply" class="secondary-button">К карточкам</button></div></dialog>
+  <dialog id="collection-dialog" class="settings-dialog collection-dialog" aria-labelledby="collection-title"><form method="dialog" class="dialog-header"><h2 id="collection-title">Колоды и фильтры</h2><button class="icon-button" aria-label="Закрыть фильтры"><span data-icon="close"></span></button></form><div id="collection-dialog-body" class="dialog-content"></div><div class="collection-done"><button id="collection-apply" class="secondary-button">К карточкам</button></div></dialog>
   <dialog id="settings-dialog" class="settings-dialog" aria-labelledby="settings-title">
     <form method="dialog" class="dialog-header"><h2 id="settings-title">Как звучит английский</h2><button class="icon-button" aria-label="Закрыть настройки"><span data-icon="close"></span></button></form>
     <div class="dialog-content"><label class="field-label" for="voice-select">Голос</label><select id="voice-select"><option value="englex-ai" selected>Ryan</option></select><p class="field-hint" id="voice-coverage">Загружаем доступные записи…</p><p class="field-hint" id="englex-voice-provenance">Для Ryan сначала используются оригинальные записи Englex; остальные записи — отдельный синтез Ryan (Microsoft Edge).</p><p class="field-hint">Все карточки звучат голосом Ryan. Если запись ещё не готова, динамик станет доступен после её публикации.</p>
